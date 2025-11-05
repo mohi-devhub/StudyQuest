@@ -108,29 +108,113 @@ CREATE POLICY "Users can manage own quizzes"
 -- Progress Tracking Table
 CREATE TABLE IF NOT EXISTS public.progress (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  session_id UUID REFERENCES public.study_sessions(id) ON DELETE CASCADE,
-  quiz_id UUID REFERENCES public.quizzes(id) ON DELETE CASCADE,
-  score INTEGER,
-  completed BOOLEAN DEFAULT FALSE,
-  completed_at TIMESTAMPTZ,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  topic TEXT NOT NULL,
+  completion_status TEXT NOT NULL DEFAULT 'not_started', -- 'not_started', 'in_progress', 'completed'
+  last_attempt TIMESTAMPTZ,
+  avg_score DECIMAL(5,2) DEFAULT 0.0, -- Average score as percentage (0.00 - 100.00)
+  total_attempts INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, topic) -- One progress record per user per topic
 );
 
 ALTER TABLE public.progress ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own progress"
+-- Users can view their own progress
+CREATE POLICY "Users can view own progress"
   ON public.progress
-  FOR ALL
+  FOR SELECT
   USING (auth.uid() = user_id);
+
+-- Users can insert their own progress
+CREATE POLICY "Users can insert own progress"
+  ON public.progress
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own progress
+CREATE POLICY "Users can update own progress"
+  ON public.progress
+  FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Users can delete their own progress
+CREATE POLICY "Users can delete own progress"
+  ON public.progress
+  FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- XP Logs Table
+CREATE TABLE IF NOT EXISTS public.xp_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  points INTEGER NOT NULL,
+  reason TEXT NOT NULL, -- 'quiz_completed', 'study_session', 'daily_streak', etc.
+  metadata JSONB DEFAULT '{}'::jsonb, -- Additional data like quiz score, topic, etc.
+  timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.xp_logs ENABLE ROW LEVEL SECURITY;
+
+-- Users can view their own XP logs
+CREATE POLICY "Users can view own xp logs"
+  ON public.xp_logs
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Users can insert their own XP logs
+CREATE POLICY "Users can insert own xp logs"
+  ON public.xp_logs
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- System/backend can insert XP logs (via service role key)
+-- Note: This policy allows authenticated users to insert their own logs
+-- For backend insertion, use the service role key which bypasses RLS
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_study_sessions_user_id ON public.study_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_quizzes_user_id ON public.quizzes(user_id);
 CREATE INDEX IF NOT EXISTS idx_progress_user_id ON public.progress(user_id);
-CREATE INDEX IF NOT EXISTS idx_progress_session_id ON public.progress(session_id);
-CREATE INDEX IF NOT EXISTS idx_progress_quiz_id ON public.progress(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_progress_topic ON public.progress(topic);
+CREATE INDEX IF NOT EXISTS idx_progress_user_topic ON public.progress(user_id, topic);
+CREATE INDEX IF NOT EXISTS idx_xp_logs_user_id ON public.xp_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_xp_logs_timestamp ON public.xp_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_xp_logs_user_timestamp ON public.xp_logs(user_id, timestamp DESC);
+
+-- Function to automatically update updated_at timestamp for progress
+CREATE OR REPLACE FUNCTION public.update_progress_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_progress_updated
+  BEFORE UPDATE ON public.progress
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_progress_timestamp();
+
+-- View to get total XP per user
+CREATE OR REPLACE VIEW public.user_total_xp AS
+SELECT 
+  user_id,
+  SUM(points) as total_xp,
+  COUNT(*) as total_activities,
+  MAX(timestamp) as last_activity
+FROM public.xp_logs
+GROUP BY user_id;
+
+-- Grant access to the view
+ALTER VIEW public.user_total_xp SET (security_invoker = true);
+
+-- RLS policy for the view
+CREATE POLICY "Users can view own total XP"
+  ON public.xp_logs
+  FOR SELECT
+  USING (auth.uid() = user_id);
 ```
 
 ## Setup Instructions
