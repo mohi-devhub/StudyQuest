@@ -35,7 +35,7 @@ export default function LeaderboardPage() {
       // Fetch real data from Supabase
       const { data, error: queryError } = await supabase
         .from('users')
-        .select('user_id, username, total_xp, level')
+        .select('id:user_id, username, total_xp, level')
         .order('total_xp', { ascending: false })
         .limit(10)
 
@@ -57,7 +57,7 @@ export default function LeaderboardPage() {
         const first = rankedData[0]
         console.log('[LEADERBOARD] First entry details:', {
           rank: first.rank,
-          user_id: first.user_id,
+          id: first.id,
           username: first.username,
           total_xp: first.total_xp,
           level: first.level
@@ -198,14 +198,14 @@ export default function LeaderboardPage() {
         <div className="border-l border-r border-b border-terminal-white">
           {leaderboard.map((entry, index) => (
             <motion.div
-              key={entry.user_id}
+              key={entry.id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               whileHover={{ scale: 1.005, transition: { duration: 0.1 } }}
               transition={{ delay: 0.3 + index * 0.05 }}
               className={`
                 grid grid-cols-12 gap-4 p-4 bg-terminal-black
-                ${entry.user_id === 'demo_user' ? 'bg-opacity-95' : ''}
+                ${entry.id === 'demo_user' ? 'bg-opacity-95' : ''}
                 ${index < leaderboard.length - 1 ? 'border-b border-terminal-gray' : ''}
               `}
               style={{ backgroundColor: '#000000' }}
@@ -221,7 +221,7 @@ export default function LeaderboardPage() {
                 <span className="font-mono text-terminal-white font-bold" style={{ color: '#FFFFFF' }}>
                   {entry.username || 'Unknown'}
                 </span>
-                {entry.user_id === 'demo_user' && (
+                {entry.id === 'demo_user' && (
                   <span className="ml-2 text-xs border border-terminal-white px-2 py-1 text-terminal-white">YOU</span>
                 )}
               </div>

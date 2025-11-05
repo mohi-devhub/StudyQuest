@@ -57,9 +57,9 @@ export default function Dashboard() {
   const { showToast, ToastContainer } = useToast()
   
   // Stable callbacks for real-time events
-  const handleXPGain = useCallback((xp: number, source: string, topic: string) => {
-    console.log(`XP Gained: +${xp} from ${source} on ${topic}`)
-    showToast(`${topic} completed!`, xp, 'xp')
+  const handleXPGain = useCallback((xp: number, source: string, topic?: string) => {
+    console.log(`XP Gained: +${xp} from ${source} on ${topic || 'unknown'}`)
+    showToast(`${topic || 'Study'} completed!`, xp, 'xp')
     
     // Update progress with new XP
     setProgress(prev => {
