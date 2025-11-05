@@ -1,0 +1,189 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Font is preloaded in layout.tsx for better performance */
+
+:root {
+  /* Color Theme Variables */
+  --bg: #000000;
+  --text: #FFFFFF;
+  --border: #CCCCCC;
+  --muted: #808080;
+  
+  /* Legacy support */
+  --terminal-black: var(--bg);
+  --terminal-white: var(--text);
+  --terminal-gray: var(--border);
+  
+  /* Opacity variants */
+  --bg-overlay: rgba(0, 0, 0, 0.8);
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --text-dimmer: rgba(255, 255, 255, 0.3);
+  --border-dim: rgba(204, 204, 204, 0.3);
+  --hover-bg: rgba(255, 255, 255, 0.03);
+  --hover-bg-strong: rgba(255, 255, 255, 0.1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Courier New', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga' 1, 'calt' 1; /* Enable ligatures */
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border: 1px solid var(--border-dim);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+  border-color: var(--text);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+::-moz-selection {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+/* Focus styles */
+*:focus {
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
+
+button:focus,
+a:focus {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Terminal Animations */
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Terminal cursor effect */
+.cursor-blink::after {
+  content: '_';
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
+/* Typing effect */
+.typing-animation {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--text);
+  animation: typing 2s steps(40, end), blink 0.75s step-end infinite;
+}
+
+/* Error styling */
+.terminal-error {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.terminal-error::before {
+  content: 'ERROR: ';
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* Performance optimizations */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* Hardware acceleration */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Loading skeleton */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeleton {
+  background: var(--border-dim);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Fade transitions */
+.fade-enter {
+  opacity: 0;
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
