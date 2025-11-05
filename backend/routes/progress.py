@@ -35,6 +35,18 @@ class ProgressReport(BaseModel):
     results: List[Dict]
 
 
+class UpdateXPRequest(BaseModel):
+    """Request body for manual XP update"""
+    points: int = Field(..., ge=1, le=1000, description="XP points to award (1-1000)")
+    reason: str = Field(..., min_length=1, max_length=100, description="Reason for XP award")
+    metadata: Optional[Dict] = Field(default={}, description="Additional metadata")
+
+
+class ResetProgressRequest(BaseModel):
+    """Request body for resetting topic progress"""
+    topic: str = Field(..., min_length=1, max_length=200, description="Topic to reset")
+
+
 @router.get("/")
 async def get_progress_info():
     """
@@ -43,7 +55,10 @@ async def get_progress_info():
     return {
         "message": "Progress tracking and quiz evaluation",
         "endpoints": {
+            "/progress/{user_id}": "GET - Fetch complete user progress and XP data",
             "/progress/evaluate": "POST - Evaluate quiz answers and get progress report",
+            "/progress/update": "POST - Manually update XP after quiz completion",
+            "/progress/reset": "POST - Reset progress for a specific topic",
             "/progress/stats": "GET - Get user's overall progress statistics",
             "/progress/topics": "GET - Get progress for all topics",
             "/progress/topics/{topic}": "GET - Get progress for specific topic",
@@ -51,6 +66,169 @@ async def get_progress_info():
             "/progress/xp/logs": "GET - Get user's XP earning history"
         }
     }
+
+
+@router.get("/{user_id}")
+async def get_user_progress_and_xp(
+    user_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    """
+    Fetch complete user progress and XP data.
+    
+    Returns comprehensive user data including:
+    - Progress statistics (total topics, completion rate, avg score)
+    - All topic progress records
+    - Total XP and activity count
+    - Recent XP logs (last 10)
+    
+    Note: Users can only access their own data. Requesting another user's
+    data will return a 403 Forbidden error.
+    
+    Path Parameters:
+    - user_id: UUID of the user
+    """
+    try:
+        # Security: Users can only access their own progress
+        if user_id != current_user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: You can only access your own progress data"
+            )
+        
+        # Fetch all user data in parallel for efficiency
+        stats = await ProgressTracker.get_progress_stats(user_id)
+        topics = await ProgressTracker.get_user_progress(user_id)
+        xp_data = await XPTracker.get_total_xp(user_id)
+        recent_xp_logs = await XPTracker.get_user_xp_logs(user_id, limit=10)
+        
+        return {
+            "user_id": user_id,
+            "statistics": stats,
+            "topics": topics,
+            "xp": {
+                "total_xp": xp_data['total_xp'],
+                "total_activities": xp_data['total_activities'],
+                "last_activity": xp_data['last_activity']
+            },
+            "recent_xp_logs": recent_xp_logs
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch user progress: {str(e)}"
+        )
+
+
+@router.post("/update")
+async def update_xp(
+    request: UpdateXPRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Manually update XP after quiz completion or other activities.
+    
+    This endpoint allows awarding XP for activities like:
+    - Custom quiz completions
+    - Study session completions
+    - Daily streak bonuses
+    - Achievement unlocks
+    
+    Request body:
+    ```json
+    {
+        "points": 100,
+        "reason": "quiz_completed",
+        "metadata": {
+            "topic": "Neural Networks",
+            "score": 85.0,
+            "custom_field": "value"
+        }
+    }
+    ```
+    
+    Returns the created XP log and updated total XP.
+    """
+    try:
+        # Award XP
+        xp_log = await XPTracker.award_xp(
+            user_id=user_id,
+            reason=request.reason,
+            points=request.points,
+            metadata=request.metadata
+        )
+        
+        # Get updated total XP
+        total_xp = await XPTracker.get_total_xp(user_id)
+        
+        return {
+            "success": True,
+            "xp_log": xp_log,
+            "total_xp": total_xp['total_xp'],
+            "message": f"Successfully awarded {request.points} XP for {request.reason}"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update XP: {str(e)}"
+        )
+
+
+@router.post("/reset")
+async def reset_topic_progress(
+    request: ResetProgressRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Reset progress for a specific topic.
+    
+    This allows users to:
+    - Start over on a topic they want to re-learn
+    - Clear their progress to retake quizzes
+    - Reset statistics for a fresh start
+    
+    The progress record will be deleted from the database.
+    XP logs are preserved (XP earned is not removed).
+    
+    Request body:
+    ```json
+    {
+        "topic": "Neural Networks"
+    }
+    ```
+    
+    Returns confirmation of reset.
+    """
+    try:
+        # Check if progress exists
+        progress = await ProgressTracker.get_user_progress(user_id, request.topic)
+        
+        if not progress:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No progress found for topic: {request.topic}"
+            )
+        
+        # Delete progress record from Supabase
+        from backend.config.supabase_client import supabase
+        
+        result = supabase.table('progress').delete().eq('user_id', user_id).eq('topic', request.topic).execute()
+        
+        return {
+            "success": True,
+            "topic": request.topic,
+            "message": f"Successfully reset progress for topic: {request.topic}",
+            "note": "XP earned from this topic has been preserved"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reset progress: {str(e)}"
+        )
 
 
 @router.get("/stats")

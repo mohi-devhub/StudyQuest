@@ -78,7 +78,144 @@ Default XP rewards for different activities:
 
 ## API Endpoints
 
-### Progress Endpoints
+### Core Progress Endpoints
+
+#### Get User Progress and XP (Complete Data)
+```
+GET /progress/{user_id}
+Authorization: Bearer <token>
+```
+
+**Description**: Fetch comprehensive user data including progress statistics, all topic progress records, total XP, and recent activity logs.
+
+**Security**: Users can only access their own data. Requesting another user's data returns 403 Forbidden.
+
+**Response:**
+```json
+{
+  "user_id": "uuid",
+  "statistics": {
+    "total_topics": 5,
+    "completed_topics": 2,
+    "in_progress_topics": 3,
+    "average_score": 78.5,
+    "completion_rate": 40.0
+  },
+  "topics": [
+    {
+      "id": "uuid",
+      "user_id": "uuid",
+      "topic": "Neural Networks",
+      "completion_status": "completed",
+      "last_attempt": "2025-11-05T10:30:00Z",
+      "avg_score": 85.5,
+      "total_attempts": 2,
+      "created_at": "2025-11-04T09:00:00Z",
+      "updated_at": "2025-11-05T10:30:00Z"
+    }
+  ],
+  "xp": {
+    "total_xp": 450,
+    "total_activities": 5,
+    "last_activity": "2025-11-05T10:30:00Z"
+  },
+  "recent_xp_logs": [
+    {
+      "id": "uuid",
+      "points": 100,
+      "reason": "quiz_completed",
+      "metadata": {"topic": "Neural Networks"},
+      "timestamp": "2025-11-05T10:30:00Z"
+    }
+  ]
+}
+```
+
+#### Update XP After Activity
+```
+POST /progress/update
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Description**: Manually award XP points for various activities. Useful for custom activities beyond quiz completions.
+
+**Request:**
+```json
+{
+  "points": 100,
+  "reason": "quiz_completed",
+  "metadata": {
+    "topic": "Neural Networks",
+    "score": 85.0,
+    "custom_field": "value"
+  }
+}
+```
+
+**Validation**:
+- `points`: 1-1000 (enforced)
+- `reason`: 1-100 characters
+- `metadata`: Optional dictionary
+
+**Response:**
+```json
+{
+  "success": true,
+  "xp_log": {
+    "id": "uuid",
+    "user_id": "uuid",
+    "points": 100,
+    "reason": "quiz_completed",
+    "metadata": {"topic": "Neural Networks", "score": 85.0},
+    "timestamp": "2025-11-05T10:30:00Z"
+  },
+  "total_xp": 550,
+  "message": "Successfully awarded 100 XP for quiz_completed"
+}
+```
+
+**Common Reasons**:
+- `quiz_completed` - Quiz completion
+- `study_session` - Study session completed
+- `daily_streak` - Daily engagement bonus
+- `achievement_unlocked` - Achievement earned
+- `perfect_score` - 100% quiz score
+- `topic_completed` - Topic mastery achieved
+
+#### Reset Topic Progress
+```
+POST /progress/reset
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Description**: Reset progress for a specific topic, allowing users to start over. The progress record is deleted, but XP logs are preserved.
+
+**Request:**
+```json
+{
+  "topic": "Neural Networks"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "topic": "Neural Networks",
+  "message": "Successfully reset progress for topic: Neural Networks",
+  "note": "XP earned from this topic has been preserved"
+}
+```
+
+**Behavior**:
+- Deletes progress record from database
+- Preserves all XP logs (earned XP is not removed)
+- Returns 404 if topic progress doesn't exist
+- Allows fresh start on the topic
+
+### Progress Query Endpoints
 
 #### Get Progress Statistics
 ```
