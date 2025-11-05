@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from utils.auth import get_current_user_id, verify_user
 from utils.progress_tracker import ProgressTracker, XPTracker
+import time
 
 from agents.coach_agent import get_study_progress
 
@@ -10,6 +11,12 @@ router = APIRouter(
     prefix="/progress",
     tags=["progress"]
 )
+
+# Rate limiting for XP updates
+XP_UPDATE_RATE_LIMIT = 5  # Max 5 requests
+XP_UPDATE_TIME_WINDOW = 60  # per 60 seconds
+
+xp_update_requests = {}
 
 
 # Request/Response Models
