@@ -6,6 +6,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def sanitize_input(input_text: str):
+    """
+    Sanitizes user input to prevent prompt injection.
+    """
+    prompt_injection_phrases = [
+        "ignore previous instructions",
+        "ignore the above",
+        "ignore the instructions above",
+        "ignore your instructions",
+        "ignore your previous instructions",
+        "forget your instructions",
+        "disregard your instructions",
+        "ignore all previous instructions",
+    ]
+    for phrase in prompt_injection_phrases:
+        if phrase in input_text.lower():
+            raise ValueError("Prompt injection attempt detected.")
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -22,6 +40,7 @@ async def generate_quiz(notes: str, num_questions: int = 5, model: str = "google
     Returns:
         dict with 'questions' list containing quiz questions
     """
+    sanitize_input(notes)
     if not OPENROUTER_API_KEY:
         raise ValueError("OPENROUTER_API_KEY not found in environment variables")
     

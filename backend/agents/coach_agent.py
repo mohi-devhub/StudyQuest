@@ -10,6 +10,24 @@ from typing import Dict, List, Optional
 import os
 from dotenv import load_dotenv
 
+def sanitize_input(input_text: str):
+    """
+    Sanitizes user input to prevent prompt injection.
+    """
+    prompt_injection_phrases = [
+        "ignore previous instructions",
+        "ignore the above",
+        "ignore the instructions above",
+        "ignore your instructions",
+        "ignore your previous instructions",
+        "forget your instructions",
+        "disregard your instructions",
+        "ignore all previous instructions",
+    ]
+    for phrase in prompt_injection_phrases:
+        if phrase in input_text.lower():
+            raise ValueError("Prompt injection attempt detected.")
+
 # Optional imports for CrewAI integration (if available)
 try:
     from crewai import Agent, Task, Crew, Process
@@ -111,6 +129,7 @@ async def study_topic(topic: str, num_questions: int = 5) -> Dict:
     Returns:
         dict: Complete study package with notes and quiz
     """
+    sanitize_input(topic)
     print(f"\n🎓 Starting study workflow for: {topic}")
     print("="*70)
     
