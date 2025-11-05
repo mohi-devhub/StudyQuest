@@ -22,7 +22,7 @@ This means the tables don't exist in your Supabase database yet.
 ## ✅ Solution: Run the SQL Schema
 
 ### Step 1: Open Supabase SQL Editor
-1. Go to https://app.supabase.com/project/wnpysodkioaqwculjkfu/sql
+1. Go to https://app.supabase.com/project/YOUR_PROJECT_ID/sql
 2. Click "New Query"
 
 ### Step 2: Run the Schema
@@ -89,7 +89,7 @@ Once tables are created, your app will:
 
 ```bash
 # 1. Open Supabase SQL Editor
-open https://app.supabase.com/project/wnpysodkioaqwculjkfu/sql
+open https://app.supabase.com/project/YOUR_PROJECT_ID/sql
 
 # 2. Copy schema (from project root)
 cat SUPABASE_SCHEMA.sql | pbcopy

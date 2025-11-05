@@ -19,8 +19,17 @@ NC='\033[0m' # No Color
 # Configuration
 FRONTEND_URL="http://localhost:3001"
 BACKEND_URL="http://localhost:8000"
-SUPABASE_URL="https://wnpysodkioaqwculjkfu.supabase.co"
-SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InducHlzb2RraW9hcXdjdWxqa2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODAwNjgsImV4cCI6MjA3Nzg1NjA2OH0.NbbO3VgNf6MIPEzgIFmJI6Lk1EbmoorPt_LaY20Ob1Y"
+
+# Check if environment variables are set
+if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+    echo -e "${RED}❌ ERROR: SUPABASE_URL and SUPABASE_KEY environment variables must be set${NC}"
+    echo ""
+    echo "Usage:"
+    echo "  export SUPABASE_URL='your-supabase-url'"
+    echo "  export SUPABASE_KEY='your-anon-key'"
+    echo "  ./test_e2e.sh"
+    exit 1
+fi
 
 echo "📋 Test 1: Service Health Check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

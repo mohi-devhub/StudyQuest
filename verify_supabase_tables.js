@@ -7,8 +7,18 @@
 
 const { createClient } = require('@supabase/supabase-js')
 
-const supabaseUrl = 'https://wnpysodkioaqwculjkfu.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InducHlzb2RraW9hcXdjdWxqa2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODAwNjgsImV4cCI6MjA3Nzg1NjA2OH0.NbbO3VgNf6MIPEzgIFmJI6Lk1EbmoorPt_LaY20Ob1Y'
+// Get credentials from environment variables
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ ERROR: SUPABASE_URL and SUPABASE_KEY environment variables must be set')
+  console.error('\nUsage:')
+  console.error('  export SUPABASE_URL="your-supabase-url"')
+  console.error('  export SUPABASE_KEY="your-anon-key"')
+  console.error('  node verify_supabase_tables.js')
+  process.exit(1)
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 

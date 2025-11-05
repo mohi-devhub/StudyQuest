@@ -8,9 +8,17 @@ import os
 import sys
 from supabase import create_client, Client
 
-# Supabase credentials
-SUPABASE_URL = "https://wnpysodkioaqwculjkfu.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InducHlzb2RraW9hcXdjdWxqa2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODAwNjgsImV4cCI6MjA3Nzg1NjA2OH0.NbbO3VgNf6MIPEzgIFmJI6Lk1EbmoorPt_LaY20Ob1Y"
+# Get credentials from environment variables
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("❌ ERROR: SUPABASE_URL and SUPABASE_KEY environment variables must be set", file=sys.stderr)
+    print("\nUsage:", file=sys.stderr)
+    print('  export SUPABASE_URL="your-supabase-url"', file=sys.stderr)
+    print('  export SUPABASE_KEY="your-anon-key"', file=sys.stderr)
+    print('  python3 verify_supabase_tables.py', file=sys.stderr)
+    sys.exit(1)
 
 # Required tables and their columns
 REQUIRED_TABLES = {

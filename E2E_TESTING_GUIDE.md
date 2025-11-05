@@ -43,16 +43,16 @@ cat frontend/.env.local
 
 **Should contain:**
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://wnpysodkioaqwculjkfu.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ### 3. Verify Database Connection
 
 ```bash
-curl -s "https://wnpysodkioaqwculjkfu.supabase.co/rest/v1/users?select=user_id,username,total_xp&limit=1" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InducHlzb2RraW9hcXdjdWxqa2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODAwNjgsImV4cCI6MjA3Nzg1NjA2OH0.NbbO3VgNf6MIPEzgIFmJI6Lk1EbmoorPt_LaY20Ob1Y"
+curl -s "https://YOUR_PROJECT_ID.supabase.co/rest/v1/users?select=user_id,username,total_xp&limit=1" \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY"
 ```
 
 **Expected:** JSON response with user data
@@ -304,7 +304,7 @@ curl -s "https://wnpysodkioaqwculjkfu.supabase.co/rest/v1/users?select=user_id,u
 
 ```bash
 # In terminal, run this and time it:
-time psql -h wnpysodkioaqwculjkfu.supabase.co \
+time psql -h YOUR_PROJECT_ID.supabase.co \
   -U postgres \
   -d postgres \
   -c "UPDATE users SET total_xp = total_xp + 10 WHERE user_id = 'demo_user';"
