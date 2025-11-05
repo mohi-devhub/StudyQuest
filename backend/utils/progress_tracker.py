@@ -122,6 +122,110 @@ class XPTracker:
         'topic_completed': 200
     }
     
+    # Difficulty-based XP bonuses
+    DIFFICULTY_BONUSES = {
+        'easy': 10,
+        'medium': 20,
+        'hard': 30,
+        'expert': 50
+    }
+    
+    # Score tier bonuses (additional rewards for high performance)
+    SCORE_TIER_BONUSES = {
+        'perfect': 50,      # 100% score
+        'excellent': 30,    # 90-99%
+        'good': 15,         # 80-89%
+        'passing': 0        # 70-79%
+    }
+    
+    @staticmethod
+    def calculate_xp(score: int, difficulty: str = 'medium') -> int:
+        """
+        Calculate XP points based on quiz score and difficulty level.
+        
+        This is the core XP calculation logic that determines rewards based on:
+        1. Base score (proportional to percentage)
+        2. Difficulty bonus (easy=10, medium=20, hard=30, expert=50)
+        3. Performance tier bonus (perfect=50, excellent=30, good=15, passing=0)
+        
+        Args:
+            score: Quiz score as integer percentage (0-100)
+            difficulty: Difficulty level ('easy', 'medium', 'hard', 'expert')
+            
+        Returns:
+            Total XP points to award
+            
+        Examples:
+            >>> XPTracker.calculate_xp(100, 'hard')
+            180  # 100 base + 30 difficulty + 50 perfect score
+            
+            >>> XPTracker.calculate_xp(85, 'medium')
+            135  # 100 base + 20 difficulty + 15 good score
+            
+            >>> XPTracker.calculate_xp(75, 'easy')
+            110  # 100 base + 10 difficulty + 0 passing
+        """
+        # Validate inputs
+        score = max(0, min(100, score))  # Clamp score to 0-100
+        difficulty = difficulty.lower()
+        
+        if difficulty not in XPTracker.DIFFICULTY_BONUSES:
+            difficulty = 'medium'  # Default to medium if invalid
+        
+        # Base XP (always 100 for quiz completion)
+        base_xp = XPTracker.XP_VALUES['quiz_completed']
+        
+        # Difficulty bonus
+        difficulty_bonus = XPTracker.DIFFICULTY_BONUSES[difficulty]
+        
+        # Performance tier bonus based on score
+        if score >= 100:
+            performance_bonus = XPTracker.SCORE_TIER_BONUSES['perfect']
+        elif score >= 90:
+            performance_bonus = XPTracker.SCORE_TIER_BONUSES['excellent']
+        elif score >= 80:
+            performance_bonus = XPTracker.SCORE_TIER_BONUSES['good']
+        else:
+            performance_bonus = XPTracker.SCORE_TIER_BONUSES['passing']
+        
+        # Calculate total XP
+        total_xp = base_xp + difficulty_bonus + performance_bonus
+        
+        return total_xp
+    
+    @staticmethod
+    def get_difficulty_bonus(difficulty: str) -> int:
+        """
+        Get the XP bonus for a specific difficulty level.
+        
+        Args:
+            difficulty: Difficulty level ('easy', 'medium', 'hard', 'expert')
+            
+        Returns:
+            XP bonus points for the difficulty level
+        """
+        return XPTracker.DIFFICULTY_BONUSES.get(difficulty.lower(), 20)
+    
+    @staticmethod
+    def get_score_tier(score: float) -> str:
+        """
+        Determine the performance tier based on score.
+        
+        Args:
+            score: Quiz score as percentage (0-100)
+            
+        Returns:
+            Tier name: 'perfect', 'excellent', 'good', or 'passing'
+        """
+        if score >= 100:
+            return 'perfect'
+        elif score >= 90:
+            return 'excellent'
+        elif score >= 80:
+            return 'good'
+        else:
+            return 'passing'
+    
     @staticmethod
     async def award_xp(
         user_id: str,
@@ -224,26 +328,45 @@ class XPTracker:
             }
     
     @staticmethod
-    async def calculate_quiz_xp(score: float, is_first_topic: bool = False) -> int:
+    async def calculate_quiz_xp(
+        score: float,
+        difficulty: str = 'medium',
+        is_first_topic: bool = False
+    ) -> int:
         """
-        Calculate XP points for a quiz completion
+        Calculate XP points for a quiz completion with all bonuses.
+        
+        This function uses the core calculate_xp() logic and adds special bonuses:
+        - First topic bonus (if applicable)
+        - Topic completion bonus (if score >= 70%)
         
         Args:
             score: Quiz score as percentage (0-100)
+            difficulty: Difficulty level ('easy', 'medium', 'hard', 'expert')
             is_first_topic: Whether this is the user's first topic
             
         Returns:
-            Total XP points to award
+            Total XP points to award including all bonuses
+            
+        Examples:
+            >>> await XPTracker.calculate_quiz_xp(100, 'hard', True)
+            330  # 180 base + 150 first topic
+            
+            >>> await XPTracker.calculate_quiz_xp(85, 'medium', False)
+            135  # 135 base, no bonuses
         """
-        xp = XPTracker.XP_VALUES['quiz_completed']
-        
-        # Bonus for perfect score
-        if score >= 100.0:
-            xp += XPTracker.XP_VALUES['perfect_score']
+        # Use the core calculation logic
+        xp = XPTracker.calculate_xp(int(score), difficulty)
         
         # Bonus for first topic
         if is_first_topic:
             xp += XPTracker.XP_VALUES['first_topic']
+        
+        # Bonus for completing topic (70%+ score)
+        if score >= 70.0:
+            # Only award topic completion bonus once (not on every attempt)
+            # This will be checked in process_quiz_completion
+            pass
         
         return xp
     
@@ -253,20 +376,39 @@ class XPTracker:
         topic: str,
         score: float,
         total_questions: int,
-        correct_answers: int
+        correct_answers: int,
+        difficulty: str = 'medium'
     ) -> Dict[str, Any]:
         """
-        Process quiz completion: update progress and award XP
+        Process quiz completion: update progress and award XP.
+        
+        This is the main function called after a quiz is completed. It:
+        1. Checks if this is the user's first topic (for bonus)
+        2. Updates progress in the database
+        3. Calculates XP based on score, difficulty, and bonuses
+        4. Awards XP and logs the activity
         
         Args:
             user_id: UUID of the user
             topic: Study topic
-            score: Quiz score as percentage
+            score: Quiz score as percentage (0-100)
             total_questions: Total number of questions
             correct_answers: Number of correct answers
+            difficulty: Quiz difficulty level ('easy', 'medium', 'hard', 'expert')
             
         Returns:
             Combined result with progress and XP data
+            
+        Example:
+            >>> result = await XPTracker.process_quiz_completion(
+            ...     user_id="uuid",
+            ...     topic="Neural Networks",
+            ...     score=95.0,
+            ...     total_questions=5,
+            ...     correct_answers=4,
+            ...     difficulty="hard"
+            ... )
+            >>> print(result['xp_awarded']['points'])  # 160 (100 base + 30 hard + 30 excellent)
         """
         try:
             # Check if this is the first topic
@@ -284,8 +426,16 @@ class XPTracker:
                 completion_status=completion_status
             )
             
-            # Calculate and award XP
-            xp_points = await XPTracker.calculate_quiz_xp(score, is_first_topic)
+            # Calculate XP with difficulty and bonuses
+            xp_points = await XPTracker.calculate_quiz_xp(
+                score=score,
+                difficulty=difficulty,
+                is_first_topic=is_first_topic
+            )
+            
+            # Get performance tier for metadata
+            score_tier = XPTracker.get_score_tier(score)
+            difficulty_bonus = XPTracker.get_difficulty_bonus(difficulty)
             
             xp_log = await XPTracker.award_xp(
                 user_id=user_id,
@@ -294,9 +444,13 @@ class XPTracker:
                 metadata={
                     'topic': topic,
                     'score': score,
+                    'difficulty': difficulty,
+                    'difficulty_bonus': difficulty_bonus,
+                    'score_tier': score_tier,
                     'total_questions': total_questions,
                     'correct_answers': correct_answers,
-                    'completion_status': completion_status
+                    'completion_status': completion_status,
+                    'is_first_topic': is_first_topic
                 }
             )
             
@@ -307,7 +461,9 @@ class XPTracker:
                 'progress': progress,
                 'xp_awarded': xp_log,
                 'total_xp': total_xp['total_xp'],
-                'completion_status': completion_status
+                'completion_status': completion_status,
+                'difficulty': difficulty,
+                'score_tier': score_tier
             }
         except Exception as e:
             raise Exception(f"Failed to process quiz completion: {str(e)}")

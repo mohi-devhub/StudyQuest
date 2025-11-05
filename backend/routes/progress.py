@@ -23,6 +23,7 @@ class EvaluateQuizRequest(BaseModel):
     """Request body for quiz evaluation"""
     study_package: Dict = Field(..., description="Complete study package from study workflow")
     answers: List[str] = Field(..., min_items=1, max_items=20, description="List of answer letters")
+    difficulty: Optional[str] = Field(default='medium', description="Quiz difficulty: easy, medium, hard, expert")
 
 
 class ProgressReport(BaseModel):
@@ -47,6 +48,12 @@ class ResetProgressRequest(BaseModel):
     topic: str = Field(..., min_length=1, max_length=200, description="Topic to reset")
 
 
+class CalculateXPRequest(BaseModel):
+    """Request body for XP calculation preview"""
+    score: int = Field(..., ge=0, le=100, description="Quiz score (0-100)")
+    difficulty: str = Field(default='medium', description="Difficulty: easy, medium, hard, expert")
+
+
 @router.get("/")
 async def get_progress_info():
     """
@@ -56,6 +63,7 @@ async def get_progress_info():
         "message": "Progress tracking and quiz evaluation",
         "endpoints": {
             "/progress/{user_id}": "GET - Fetch complete user progress and XP data",
+            "/progress/calculate-xp": "POST - Calculate XP for a given score and difficulty",
             "/progress/evaluate": "POST - Evaluate quiz answers and get progress report",
             "/progress/update": "POST - Manually update XP after quiz completion",
             "/progress/reset": "POST - Reset progress for a specific topic",
@@ -64,8 +72,83 @@ async def get_progress_info():
             "/progress/topics/{topic}": "GET - Get progress for specific topic",
             "/progress/xp": "GET - Get user's total XP and activity stats",
             "/progress/xp/logs": "GET - Get user's XP earning history"
+        },
+        "difficulty_levels": {
+            "easy": "10 XP bonus",
+            "medium": "20 XP bonus (default)",
+            "hard": "30 XP bonus",
+            "expert": "50 XP bonus"
+        },
+        "score_tiers": {
+            "perfect": "100% - 50 XP bonus",
+            "excellent": "90-99% - 30 XP bonus",
+            "good": "80-89% - 15 XP bonus",
+            "passing": "70-79% - 0 XP bonus"
         }
     }
+
+
+@router.post("/calculate-xp")
+async def calculate_xp_preview(request: CalculateXPRequest):
+    """
+    Calculate XP for a given score and difficulty level (preview/estimation).
+    
+    This endpoint allows frontends to show users how much XP they'll earn
+    before submitting quiz answers. No authentication required as it's just
+    a calculation utility.
+    
+    XP Calculation Logic:
+    - Base XP: 100 points (for quiz completion)
+    - Difficulty Bonus: easy=10, medium=20, hard=30, expert=50
+    - Score Tier Bonus:
+      * Perfect (100%): +50 XP
+      * Excellent (90-99%): +30 XP
+      * Good (80-89%): +15 XP
+      * Passing (70-79%): +0 XP
+    
+    Request body:
+    ```json
+    {
+        "score": 85,
+        "difficulty": "hard"
+    }
+    ```
+    
+    Returns breakdown of XP calculation.
+    """
+    try:
+        # Validate difficulty
+        valid_difficulties = ['easy', 'medium', 'hard', 'expert']
+        difficulty = request.difficulty.lower()
+        if difficulty not in valid_difficulties:
+            difficulty = 'medium'
+        
+        # Calculate XP using the core function
+        total_xp = XPTracker.calculate_xp(request.score, difficulty)
+        
+        # Get breakdown details
+        base_xp = XPTracker.XP_VALUES['quiz_completed']
+        difficulty_bonus = XPTracker.get_difficulty_bonus(difficulty)
+        score_tier = XPTracker.get_score_tier(float(request.score))
+        performance_bonus = XPTracker.SCORE_TIER_BONUSES[score_tier]
+        
+        return {
+            "score": request.score,
+            "difficulty": difficulty,
+            "total_xp": total_xp,
+            "breakdown": {
+                "base_xp": base_xp,
+                "difficulty_bonus": difficulty_bonus,
+                "performance_bonus": performance_bonus,
+                "score_tier": score_tier
+            },
+            "message": f"Score of {request.score}% on {difficulty} difficulty = {total_xp} XP"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate XP: {str(e)}"
+        )
 
 
 @router.get("/{user_id}")
@@ -427,20 +510,29 @@ async def evaluate_quiz(
         score = progress['score_percentage']
         total_questions = progress['total_questions']
         correct_answers = progress['correct_answers']
+        difficulty = request.difficulty or 'medium'
         
-        # Process quiz completion (updates progress + awards XP)
+        # Validate difficulty
+        valid_difficulties = ['easy', 'medium', 'hard', 'expert']
+        if difficulty.lower() not in valid_difficulties:
+            difficulty = 'medium'
+        
+        # Process quiz completion (updates progress + awards XP with difficulty bonus)
         gamification_result = await XPTracker.process_quiz_completion(
             user_id=user_id,
             topic=topic,
             score=score,
             total_questions=total_questions,
-            correct_answers=correct_answers
+            correct_answers=correct_answers,
+            difficulty=difficulty
         )
         
         # Add gamification data to response
         progress['xp_awarded'] = gamification_result['xp_awarded']['points']
         progress['total_xp'] = gamification_result['total_xp']
         progress['completion_status'] = gamification_result['completion_status']
+        progress['difficulty'] = gamification_result['difficulty']
+        progress['score_tier'] = gamification_result['score_tier']
         
         return progress
         

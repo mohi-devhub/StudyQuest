@@ -2,8 +2,14 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, Field
 from agents.research_agent import generate_notes, generate_notes_with_fallback
 from agents.coach_agent import study_topic, study_multiple_topics
-from utils.auth import verify_user
-from typing import List, Dict
+from agents.adaptive_quiz_agent import AdaptiveQuizAgent
+from agents.recommendation_agent import RecommendationAgent
+from agents.coach_agent import CoachAgent
+from utils.auth import verify_user, get_current_user_id
+from utils.adaptive_quiz_utils import AdaptiveQuizHelper
+from utils.recommendation_utils import RecommendationHelper
+from utils.quiz_completion_utils import save_quiz_result, get_quiz_result
+from typing import List, Dict, Optional
 
 router = APIRouter(
     prefix="/study",
@@ -103,6 +109,23 @@ class BatchStudyRequest(BaseModel):
         }
 
 
+class AdaptiveQuizRequest(BaseModel):
+    """Request for adaptive quiz generation"""
+    topic: str = Field(..., min_length=1, max_length=200, description="Study topic")
+    difficulty_preference: Optional[str] = Field(None, description="User's preferred difficulty (easy, medium, hard, expert)")
+    num_questions: int = Field(5, ge=1, le=10, description="Number of questions (1-10)")
+    notes: Optional[str] = Field(None, description="Optional study notes to use (if not provided, will be generated)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "topic": "Machine Learning Algorithms",
+                "difficulty_preference": "hard",
+                "num_questions": 5
+            }
+        }
+
+
 @router.get("/")
 async def get_study_info():
     """
@@ -113,8 +136,18 @@ async def get_study_info():
         "endpoints": {
             "/study": "POST - Generate complete study package (notes + quiz)",
             "/study/complete": "POST - Same as /study (alternative endpoint)",
+            "/study/adaptive-quiz": "POST - Generate adaptive quiz based on user performance",
             "/study/generate-notes": "POST - Generate only study notes",
             "/study/batch": "POST - Process multiple topics in parallel"
+        },
+        "adaptive_quiz": {
+            "description": "Adaptive quiz adjusts difficulty based on past performance",
+            "difficulty_levels": ["easy", "medium", "hard", "expert"],
+            "logic": {
+                "score_>_80%": "increase difficulty",
+                "score_<_50%": "decrease difficulty",
+                "user_preference": "overrides automatic adjustment"
+            }
         }
     }
 
@@ -323,4 +356,423 @@ async def batch_study_workflow(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate study packages: {str(e)}"
         )
+
+
+@router.post("/adaptive-quiz")
+async def generate_adaptive_quiz(
+    request: AdaptiveQuizRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Generate an adaptive quiz based on user's past performance.
+    
+    This endpoint uses AI to adjust quiz difficulty based on:
+    - User's average score on past quizzes
+    - Past quiz difficulty levels
+    - User's preferred difficulty (if specified)
+    
+    **Adaptive Logic**:
+    - If average score > 80% → increase difficulty
+    - If average score < 50% → decrease difficulty
+    - Otherwise → maintain current difficulty
+    - User preference always overrides automatic adjustment
+    
+    **Difficulty Levels**:
+    - `easy`: Basic recall and understanding questions
+    - `medium`: Application and analysis questions (default)
+    - `hard`: Advanced synthesis and evaluation
+    - `expert`: Complex problem-solving and critical thinking
+    
+    Request:
+    ```json
+    {
+        "topic": "Machine Learning",
+        "difficulty_preference": "hard",
+        "num_questions": 5
+    }
+    ```
+    
+    Response includes:
+    - Quiz questions at appropriate difficulty
+    - Adaptive reasoning (why this difficulty was chosen)
+    - User performance metrics
+    - Difficulty recommendation
+    
+    Requires authentication.
+    """
+    try:
+        # Validate topic
+        if not request.topic or not request.topic.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Topic cannot be empty"
+            )
+        
+        topic = request.topic.strip()
+        
+        # Get adaptive quiz parameters based on user performance
+        adaptive_params = await AdaptiveQuizHelper.get_adaptive_quiz_params(
+            user_id=user_id,
+            topic=topic,
+            user_preference=request.difficulty_preference
+        )
+        
+        # Get or generate study notes
+        if request.notes:
+            notes = request.notes
+        else:
+            # Generate notes for the topic
+            print(f"Generating notes for topic: {topic}")
+            notes_data = await generate_notes_with_fallback(topic)
+            
+            # Format notes for quiz generation
+            notes = f"Topic: {notes_data['topic']}\n\n"
+            notes += f"Summary: {notes_data['summary']}\n\n"
+            notes += "Key Points:\n"
+            for i, point in enumerate(notes_data['key_points'], 1):
+                notes += f"{i}. {point}\n"
+        
+        # Generate adaptive quiz
+        print(f"Generating {adaptive_params['difficulty']} difficulty quiz for {topic}")
+        quiz_data = await AdaptiveQuizAgent.generate_adaptive_quiz_with_fallback(
+            notes=notes,
+            difficulty=adaptive_params['difficulty'],
+            num_questions=request.num_questions,
+            user_context=adaptive_params['user_performance']
+        )
+        
+        # Format response with adaptive metadata
+        response = AdaptiveQuizHelper.format_adaptive_response(
+            quiz_data={
+                'topic': topic,
+                'questions': quiz_data['questions'],
+                'metadata': quiz_data.get('metadata', {})
+            },
+            adaptive_params=adaptive_params
+        )
+        
+        return response
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate adaptive quiz: {str(e)}"
+        )
+
+
+@router.get("/recommendations")
+async def get_study_recommendations(
+    user_id: str = Depends(get_current_user_id),
+    max_recommendations: int = 5,
+    include_ai_insights: bool = True
+):
+    """
+    Get personalized study recommendations based on user progress.
+    
+    This endpoint analyzes:
+    - **Weak Areas**: Topics with scores below 70%
+    - **Stale Topics**: Topics not studied in 7+ days
+    - **New Opportunities**: Topics not yet attempted
+    
+    **Recommendation Priority**:
+    1. **High**: Weak areas (immediate improvement needed)
+    2. **Medium**: Stale topics (prevent knowledge decay)
+    3. **Low**: New topics (expand knowledge base)
+    
+    **XP Estimation**:
+    - Calculated based on recommended difficulty and improvement potential
+    - Weak areas earn bonus XP for improvement
+    - Range: 120-225 XP per quiz
+    
+    **AI Insights** (if enabled):
+    - Personalized motivational message
+    - Learning pattern analysis
+    - Specific advice for top priority
+    
+    Example Response:
+    ```json
+    {
+      "recommendations": [
+        {
+          "topic": "Data Structures",
+          "reason": "Improve performance (current: 62%, goal: 70%+)",
+          "priority": "high",
+          "category": "weak_area",
+          "recommended_difficulty": "medium",
+          "estimated_xp_gain": 180,
+          "urgency": "Address gaps in understanding"
+        }
+      ],
+      "ai_insights": {
+        "motivational_message": "...",
+        "learning_insight": "...",
+        "priority_advice": "..."
+      },
+      "overall_stats": {
+        "total_attempts": 25,
+        "avg_score": 73.5,
+        "topics_studied": 8
+      }
+    }
+    ```
+    
+    Query Parameters:
+    - `max_recommendations`: Maximum recommendations to return (default: 5)
+    - `include_ai_insights`: Enable AI-generated insights (default: true)
+    
+    Requires authentication.
+    """
+    try:
+        # Fetch user data
+        recommendation_data = await RecommendationHelper.get_recommendation_data(user_id)
+        
+        if not recommendation_data['user_progress']:
+            # New user with no progress
+            return {
+                'recommendations': [
+                    {
+                        'topic': 'Python Programming',
+                        'reason': 'Great starting point for beginners',
+                        'priority': 'high',
+                        'category': 'new_learning',
+                        'recommended_difficulty': 'easy',
+                        'estimated_xp_gain': 120,
+                        'urgency': 'Start your learning journey'
+                    },
+                    {
+                        'topic': 'Web Development',
+                        'reason': 'Popular and practical skill',
+                        'priority': 'medium',
+                        'category': 'new_learning',
+                        'recommended_difficulty': 'easy',
+                        'estimated_xp_gain': 120,
+                        'urgency': 'Build foundational web skills'
+                    }
+                ],
+                'ai_insights': {
+                    'motivational_message': 'Welcome to StudyQuest! Start with the basics and build your knowledge step by step.',
+                    'learning_insight': 'You\'re at the beginning of an exciting learning journey.',
+                    'priority_advice': 'Start with Python Programming to build strong fundamentals.'
+                },
+                'overall_stats': {
+                    'total_attempts': 0,
+                    'avg_score': 0,
+                    'topics_studied': 0
+                },
+                'metadata': {
+                    'ai_enhanced': False,
+                    'new_user': True
+                }
+            }
+        
+        # Generate recommendations
+        recommendations_result = await RecommendationAgent.get_study_recommendations(
+            user_progress=recommendation_data['user_progress'],
+            all_available_topics=recommendation_data.get('all_available_topics'),
+            max_recommendations=max_recommendations,
+            include_ai_insights=include_ai_insights
+        )
+        
+        # Format response
+        response = RecommendationAgent.format_recommendation_response(recommendations_result)
+        
+        return response
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate recommendations: {str(e)}"
+        )
+
+
+class QuizCompletionRequest(BaseModel):
+    """Request for completing a quiz and saving results"""
+    user_id: str = Field(..., min_length=1)
+    topic: str = Field(..., min_length=1)
+    difficulty: str = Field(..., pattern="^(easy|medium|hard|expert)$")
+    score: float = Field(..., ge=0, le=100)
+    total_questions: int = Field(..., ge=1)
+    correct_answers: float = Field(..., ge=0)
+    xp_gained: int = Field(..., ge=0)
+    performance_feedback: str
+    next_difficulty: str = Field(..., pattern="^(easy|medium|hard|expert)$")
+    quiz_data: Optional[Dict] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_id": "user123",
+                "topic": "Python Programming",
+                "difficulty": "medium",
+                "score": 85,
+                "total_questions": 10,
+                "correct_answers": 8.5,
+                "xp_gained": 165,
+                "performance_feedback": "Great work! You're ready for harder challenges.",
+                "next_difficulty": "hard",
+                "quiz_data": {
+                    "questions": [],
+                    "user_answers": []
+                }
+            }
+        }
+
+
+class QuizCompletionResponse(BaseModel):
+    """Response after quiz completion"""
+    quiz_id: str
+    user_id: str
+    xp_gained: int
+    total_xp: int
+    current_level: int
+    level_up: bool
+    coach_feedback: Dict
+    timestamp: str
+
+
+class CoachFeedbackRequest(BaseModel):
+    """Request for coach feedback"""
+    topic: str
+    difficulty: str
+    score: float = Field(..., ge=0, le=100)
+    correct_answers: int
+    total_questions: int
+    xp_gained: int
+    next_difficulty: str
+    context: Optional[str] = None
+
+
+@router.post("/quiz/complete", response_model=QuizCompletionResponse)
+async def complete_quiz(
+    request: QuizCompletionRequest,
+    current_user: str = Depends(get_current_user_id)
+):
+    """
+    Complete a quiz and save results to database.
+    
+    - Saves quiz result
+    - Updates user XP and level
+    - Updates topic progress
+    - Generates coach feedback
+    - Returns completion summary
+    """
+    try:
+        # Initialize helper
+        from utils.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        
+        # Save quiz result and update progress
+        completion_result = await save_quiz_result(
+            supabase=supabase,
+            user_id=request.user_id,
+            topic=request.topic,
+            difficulty=request.difficulty,
+            score=request.score,
+            total_questions=request.total_questions,
+            correct_answers=request.correct_answers,
+            xp_gained=request.xp_gained,
+            performance_feedback=request.performance_feedback,
+            next_difficulty=request.next_difficulty,
+            quiz_data=request.quiz_data
+        )
+        
+        # Generate coach feedback
+        coach = CoachAgent()
+        feedback = coach.generate_feedback(
+            topic=request.topic,
+            difficulty=request.difficulty,
+            score=request.score,
+            correct_answers=int(request.correct_answers),
+            total_questions=request.total_questions,
+            xp_gained=request.xp_gained,
+            next_difficulty=request.next_difficulty,
+            context=None
+        )
+        
+        return QuizCompletionResponse(
+            quiz_id=completion_result["quiz_id"],
+            user_id=completion_result["user_id"],
+            xp_gained=completion_result["xp_gained"],
+            total_xp=completion_result["total_xp"],
+            current_level=completion_result["current_level"],
+            level_up=completion_result.get("level_up", False),
+            coach_feedback=feedback.dict(),
+            timestamp=completion_result["timestamp"]
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to complete quiz: {str(e)}"
+        )
+
+
+@router.post("/coach/feedback")
+async def get_coach_feedback(request: CoachFeedbackRequest):
+    """
+    Get motivational feedback from Coach Agent.
+    
+    - Analyzes quiz performance
+    - Generates personalized motivation
+    - Provides learning insights
+    - Suggests next steps
+    """
+    try:
+        coach = CoachAgent()
+        feedback = coach.generate_feedback(
+            topic=request.topic,
+            difficulty=request.difficulty,
+            score=request.score,
+            correct_answers=request.correct_answers,
+            total_questions=request.total_questions,
+            xp_gained=request.xp_gained,
+            next_difficulty=request.next_difficulty,
+            context=request.context
+        )
+        
+        return feedback.dict()
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate coach feedback: {str(e)}"
+        )
+
+
+@router.get("/quiz/result/{quiz_id}")
+async def get_quiz_result_by_id(
+    quiz_id: str,
+    current_user: str = Depends(get_current_user_id)
+):
+    """
+    Retrieve quiz result by ID.
+    
+    - Fetches quiz result from database
+    - Includes all quiz details
+    - Returns 404 if not found
+    """
+    try:
+        from utils.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        
+        result = await get_quiz_result(supabase, quiz_id)
+        
+        if not result:
+            raise HTTPException(
+                status_code=404,
+                detail="Quiz result not found"
+            )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve quiz result: {str(e)}"
+        )
+
 
