@@ -1,10 +1,27 @@
-fastapi
-uvicorn
-pydantic[email]
-langchain
-langchain-openai
-langchain-core
-crewai
-httpx
-python-dotenv
-supabase
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Data Validation
+pydantic[email]>=2.10.0
+
+# AI/LangChain
+langchain==0.0.340
+langchain-openai>=0.0.2
+langchain-core>=0.1.7,<0.2
+langchain-community
+
+# HTTP Client
+httpx==0.24.1
+
+# Environment & Config
+python-dotenv==1.0.0
+
+# Database
+supabase==2.0.3
+
+# Rate Limiting & Security
+slowapi==0.1.9
+
+# PDF Processing
+PyPDF2==3.0.1
