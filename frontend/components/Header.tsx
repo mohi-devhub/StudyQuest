@@ -36,9 +36,15 @@ export default function Header() {
           </Link>
           <Link
             href="/leaderboard"
-            className="border border-terminal-white px-4 py-2 hover:bg-terminal-white hover:text-terminal-black transition-colors text-sm"
+            className="border border-terminal-gray px-4 py-2 hover:border-terminal-white hover:bg-terminal-white hover:text-terminal-black transition-colors text-sm"
           >
             🏆 LEADERBOARD
+          </Link>
+          <Link
+            href="/profile"
+            className="border border-terminal-gray px-4 py-2 hover:border-terminal-white hover:bg-terminal-white hover:text-terminal-black transition-colors text-sm"
+          >
+            👤 PROFILE
           </Link>
           <div className="text-right">
             <div className="text-terminal-gray text-xs">SYSTEM_STATUS</div>

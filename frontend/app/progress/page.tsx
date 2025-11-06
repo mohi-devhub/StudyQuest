@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/useAuth'
 import CoachFeedbackPanel from '@/components/CoachFeedbackPanel'
 
 interface TopicProgress {
@@ -31,6 +32,7 @@ interface UserData {
 }
 
 export default function ProgressDashboard() {
+  const { userId, loading: authLoading } = useAuth()
   const [userData, setUserData] = useState<UserData | null>(null)
   const [topics, setTopics] = useState<TopicProgress[]>([])
   const [stats, setStats] = useState<UserStats | null>(null)
@@ -39,15 +41,24 @@ export default function ProgressDashboard() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchProgressData()
-  }, [])
+    if (!authLoading && !userId) {
+      router.push('/login')
+    }
+  }, [authLoading, userId, router])
+
+  useEffect(() => {
+    if (userId) {
+      fetchProgressData()
+    }
+  }, [userId])
 
   const fetchProgressData = async () => {
+    if (!userId) return
+    
     try {
       setLoading(true)
 
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const userId = 'demo_user'
 
       // Fetch user stats from v2 API
       const statsRes = await fetch(`${API_BASE}/progress/v2/user/${userId}/stats`)
@@ -61,7 +72,7 @@ export default function ProgressDashboard() {
       const userData: UserData = {
         total_xp: statsData.total_xp || 0,
         level: statsData.level || 1,
-        username: 'demo_user'
+        username: userId
       }
 
       const topics: TopicProgress[] = (topicsData.topics || []).map((t: any) => ({
@@ -271,7 +282,7 @@ export default function ProgressDashboard() {
           transition={{ delay: 0.3 }}
           className="mb-8"
         >
-          <CoachFeedbackPanel userId="demo_user" />
+          <CoachFeedbackPanel userId={userId || ''} />
         </motion.div>
 
         {/* Topics Table */}

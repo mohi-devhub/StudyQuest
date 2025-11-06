@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { useAuth } from '@/lib/useAuth'
+import { useRouter } from 'next/navigation'
 
 interface Badge {
   id: string
@@ -28,18 +30,28 @@ interface Achievement {
 }
 
 export default function AchievementsPage() {
+  const { userId, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [badges, setBadges] = useState<Badge[]>([])
   const [summary, setSummary] = useState<Achievement | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const userId = 'demo_user' // In production, get from auth
+  useEffect(() => {
+    if (!authLoading && !userId) {
+      router.push('/login')
+    }
+  }, [authLoading, userId, router])
 
   useEffect(() => {
-    fetchAchievements()
-  }, [])
+    if (userId) {
+      fetchAchievements()
+    }
+  }, [userId])
 
   const fetchAchievements = async () => {
+    if (!userId) return
+    
     try {
       setLoading(true)
       setError(null)

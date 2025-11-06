@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/lib/useAuth'
 
 export const metadata: Metadata = {
   title: 'StudyQuest - Developer Dashboard',
@@ -40,7 +41,11 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="font-mono antialiased">{children}</body>
+      <body className="font-mono antialiased">
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }

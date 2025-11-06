@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { useAuth } from '@/lib/useAuth'
 import { supabase, LeaderboardEntry } from '@/lib/supabase'
 import { useRealtimeLeaderboard } from '@/lib/useRealtimeXP'
 
 export default function LeaderboardPage() {
+  const { userId } = useAuth()
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -205,7 +207,7 @@ export default function LeaderboardPage() {
               transition={{ delay: 0.3 + index * 0.05 }}
               className={`
                 grid grid-cols-12 gap-4 p-4 bg-terminal-black
-                ${entry.id === 'demo_user' ? 'bg-opacity-95' : ''}
+                ${entry.id === userId ? 'bg-opacity-95' : ''}
                 ${index < leaderboard.length - 1 ? 'border-b border-terminal-gray' : ''}
               `}
               style={{ backgroundColor: '#000000' }}
@@ -221,7 +223,7 @@ export default function LeaderboardPage() {
                 <span className="font-mono text-terminal-white font-bold" style={{ color: '#FFFFFF' }}>
                   {entry.username || 'Unknown'}
                 </span>
-                {entry.id === 'demo_user' && (
+                {entry.id === userId && (
                   <span className="ml-2 text-xs border border-terminal-white px-2 py-1 text-terminal-white">YOU</span>
                 )}
               </div>
