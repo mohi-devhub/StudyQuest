@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-
 interface CoachFeedback {
   success: boolean
   user_id: string
@@ -136,7 +135,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
                       </div>
                     </div>
                     <div className="text-right ml-4">
-                      <div className="text-red-500 font-bold font-mono">
+                      <div className="font-bold font-mono">
                         {topic.score.toFixed(0)}%
                       </div>
                       <div className="text-gray-600 text-xs">
@@ -195,7 +194,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
                     transition={{ delay: 0.6 + index * 0.05 }}
                     className="text-white font-mono flex items-start"
                   >
-                    <span className="text-green-500 mr-3">▸</span>
+                    <span className="text-white mr-3">▸</span>
                     <span>{step}</span>
                   </motion.div>
                 ))}
