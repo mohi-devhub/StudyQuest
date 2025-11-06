@@ -6,13 +6,23 @@ interface UseRealtimeXPProps {
   onXPGain?: (points: number, reason: string, topic?: string) => void;
   onLevelUp?: (newLevel: number) => void;
   onProgressUpdate?: (topic: string, avgScore: number) => void;
+  onBadgeUnlock?: (badge: UnlockedBadge) => void;
 }
 
 interface UseRealtimeLeaderboardProps {
   userId?: string;
 }
 
-export const useRealtimeXP = ({ userId, onXPGain, onLevelUp, onProgressUpdate }: UseRealtimeXPProps) => {
+interface UnlockedBadge {
+  badge_key: string;
+  name: string;
+  description: string;
+  symbol: string;
+  tier: number;
+  unlocked_at: string;
+}
+
+export const useRealtimeXP = ({ userId, onXPGain, onLevelUp, onProgressUpdate, onBadgeUnlock }: UseRealtimeXPProps) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -52,11 +62,58 @@ export const useRealtimeXP = ({ userId, onXPGain, onLevelUp, onProgressUpdate }:
       )
       .subscribe();
 
+    // Listen for new badge unlocks
+    const badgeChannel = supabase
+      .channel('public:user_badges')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'user_badges', filter: `user_id=eq.${userId}` },
+        async (payload) => {
+          console.log('Badge unlock received!', payload);
+          
+          // Fetch full badge details
+          if (onBadgeUnlock) {
+            try {
+              const { data, error } = await supabase
+                .from('user_badges')
+                .select(`
+                  unlocked_at,
+                  badges (
+                    badge_key,
+                    name,
+                    description,
+                    symbol,
+                    tier
+                  )
+                `)
+                .eq('id', payload.new.id)
+                .single();
+
+              if (data && !error && data.badges) {
+                const badge = Array.isArray(data.badges) ? data.badges[0] : data.badges;
+                onBadgeUnlock({
+                  badge_key: badge.badge_key,
+                  name: badge.name,
+                  description: badge.description,
+                  symbol: badge.symbol,
+                  tier: badge.tier,
+                  unlocked_at: data.unlocked_at,
+                });
+              }
+            } catch (err) {
+              console.error('Error fetching badge details:', err);
+            }
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(xpChannel);
       supabase.removeChannel(progressChannel);
+      supabase.removeChannel(badgeChannel);
     };
-  }, [userId, onXPGain, onLevelUp, onProgressUpdate]);
+  }, [userId, onXPGain, onLevelUp, onProgressUpdate, onBadgeUnlock]);
 
   return { isConnected };
 };

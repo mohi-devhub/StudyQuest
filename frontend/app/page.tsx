@@ -7,8 +7,12 @@ import XPProgressBar from '@/components/XPProgressBar'
 import TopicCard from '@/components/TopicCard'
 import RecommendedCard from '@/components/RecommendedCard'
 import LoadingScreen from '@/components/LoadingScreen'
+import DashboardHeader from '@/components/DashboardHeader'
+import ProgressDashboard from '@/components/ProgressDashboard'
+import CoachFeedbackPanel from '@/components/CoachFeedbackPanel'
 import { useToast } from '@/components/Toast'
 import { useRealtimeXP } from '@/lib/useRealtimeXP'
+import CelebrationModal from '@/components/CelebrationModal'
 
 interface UserProgress {
   user_id: string
@@ -55,6 +59,20 @@ export default function Dashboard() {
   const [showXPSummary, setShowXPSummary] = useState(false)
   const [xpSummaryData, setXPSummaryData] = useState<any>(null)
   
+  // Celebration states
+  const [celebration, setCelebration] = useState<{
+    isOpen: boolean
+    type: 'level' | 'badge'
+    title: string
+    message: string
+    symbol?: string
+  }>({
+    isOpen: false,
+    type: 'level',
+    title: '',
+    message: '',
+  })
+  
   // Real-time updates
   const { showToast, ToastContainer } = useToast()
   
@@ -66,10 +84,18 @@ export default function Dashboard() {
     // Update progress with new XP
     setProgress(prev => {
       if (!prev) return prev
+      const newTotalXP = prev.total_xp + xp
+      const newLevel = Math.floor(newTotalXP / 500) + 1
+      
+      // Check for level up
+      if (newLevel > prev.level) {
+        handleLevelUp(newLevel)
+      }
+      
       return {
         ...prev,
-        total_xp: prev.total_xp + xp,
-        level: Math.floor((prev.total_xp + xp) / 500) + 1
+        total_xp: newTotalXP,
+        level: newLevel
       }
     })
   }, [showToast])
@@ -77,6 +103,39 @@ export default function Dashboard() {
   const handleLevelUp = useCallback((newLevel: number) => {
     console.log(`Level Up! New level: ${newLevel}`)
     showToast(`LEVEL UP! Now level ${newLevel}`, undefined, 'success')
+    
+    // Show celebration modal
+    const levelTitles: { [key: number]: string } = {
+      5: 'Novice Scholar',
+      10: 'Curious Mind',
+      15: 'Dedicated Learner',
+      20: 'Knowledge Seeker',
+      25: 'Wise Student',
+      30: 'Sage',
+    }
+    
+    const title = levelTitles[newLevel] || 'Knowledge Seeker'
+    
+    setCelebration({
+      isOpen: true,
+      type: 'level',
+      title: `🎉 LEVEL UP!`,
+      message: `You are now Level ${newLevel} – ${title}`,
+    })
+  }, [showToast])
+
+  const handleBadgeUnlock = useCallback((badge: any) => {
+    console.log('Badge unlocked!', badge)
+    showToast(`Badge Unlocked: ${badge.name}`, undefined, 'success')
+    
+    // Show celebration modal
+    setCelebration({
+      isOpen: true,
+      type: 'badge',
+      title: `🏆 BADGE UNLOCKED!`,
+      message: badge.description,
+      symbol: badge.symbol,
+    })
   }, [showToast])
 
   const handleProgressUpdate = useCallback((topic: string, newAvgScore: number) => {
@@ -99,7 +158,8 @@ export default function Dashboard() {
     userId: 'demo_user',
     onXPGain: handleXPGain,
     onLevelUp: handleLevelUp,
-    onProgressUpdate: handleProgressUpdate
+    onProgressUpdate: handleProgressUpdate,
+    onBadgeUnlock: handleBadgeUnlock,
   })
 
   useEffect(() => {
@@ -407,6 +467,16 @@ export default function Dashboard() {
       
       {/* Toast Notifications */}
       <ToastContainer />
+      
+      {/* Celebration Modal */}
+      <CelebrationModal
+        type={celebration.type}
+        title={celebration.title}
+        message={celebration.message}
+        symbol={celebration.symbol}
+        isOpen={celebration.isOpen}
+        onClose={() => setCelebration(prev => ({ ...prev, isOpen: false }))}
+      />
       
       {/* XP Summary Modal (for retry completion) */}
       {showXPSummary && xpSummaryData && (

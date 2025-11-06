@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import TypingText from '@/components/TypingText'
+import InlineCelebration from '@/components/InlineCelebration'
 
 interface QuizResult {
   quiz_id: string
@@ -247,6 +248,20 @@ export default function QuizResultPage() {
             transition={{ delay: 0.4, duration: 0.5 }}
             className="border-t border-terminal-gray origin-left"
           />
+
+          {/* Celebration Message for Good Performance */}
+          {result.score >= 70 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+            >
+              <InlineCelebration 
+                message={result.score >= 90 ? '🎉 EXCELLENT WORK!' : '✓ GREAT JOB!'}
+                symbol={result.score >= 90 ? '★★★' : '★★'}
+              />
+            </motion.div>
+          )}
 
           {/* Score Section */}
           <motion.div
