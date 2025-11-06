@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Header from '@/components/Header'
 import XPProgressBar from '@/components/XPProgressBar'
 import TopicCard from '@/components/TopicCard'
@@ -12,6 +14,7 @@ import ProgressDashboard from '@/components/ProgressDashboard'
 import CoachFeedbackPanel from '@/components/CoachFeedbackPanel'
 import { useToast } from '@/components/Toast'
 import { useRealtimeXP } from '@/lib/useRealtimeXP'
+import { useAuth } from '@/lib/useAuth'
 import CelebrationModal from '@/components/CelebrationModal'
 
 interface UserProgress {
@@ -52,12 +55,21 @@ interface RecommendationResponse {
 }
 
 export default function Dashboard() {
+  const { userId, user, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [recommendations, setRecommendations] = useState<RecommendationResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showXPSummary, setShowXPSummary] = useState(false)
   const [xpSummaryData, setXPSummaryData] = useState<any>(null)
+  
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !userId) {
+      router.push('/login')
+    }
+  }, [authLoading, userId, router])
   
   // Celebration states
   const [celebration, setCelebration] = useState<{
@@ -155,7 +167,7 @@ export default function Dashboard() {
   
   // Subscribe to real-time XP updates
   const { isConnected } = useRealtimeXP({
-    userId: 'demo_user',
+    userId: userId || '',
     onXPGain: handleXPGain,
     onLevelUp: handleLevelUp,
     onProgressUpdate: handleProgressUpdate,
@@ -163,143 +175,86 @@ export default function Dashboard() {
   })
 
   useEffect(() => {
-    fetchDashboardData()
-    
-    // Check if this is a retry session
-    const isRetry = sessionStorage.getItem('isRetry')
-    const studyPackage = sessionStorage.getItem('currentStudyPackage')
-    
-    if (isRetry === 'true' && studyPackage) {
-      const data = JSON.parse(studyPackage)
-      if (data.metadata?.retry && data.metadata?.xp_earned) {
-        setXPSummaryData({
-          topic: data.topic,
-          xp_earned: data.metadata.xp_earned,
-          total_xp: data.metadata.total_xp,
-          level: data.metadata.level
-        })
-        setShowXPSummary(true)
-        
-        // Clear retry flag after showing summary
-        sessionStorage.removeItem('isRetry')
+    if (userId) {
+      fetchDashboardData()
+      
+      // Check if this is a retry session
+      const isRetry = sessionStorage.getItem('isRetry')
+      const studyPackage = sessionStorage.getItem('currentStudyPackage')
+      
+      if (isRetry === 'true' && studyPackage) {
+        const data = JSON.parse(studyPackage)
+        if (data.metadata?.retry && data.metadata?.xp_earned) {
+          setXPSummaryData({
+            topic: data.topic,
+            xp_earned: data.metadata.xp_earned,
+            total_xp: data.metadata.total_xp,
+            level: data.metadata.level
+          })
+          setShowXPSummary(true)
+          
+          // Clear retry flag after showing summary
+          sessionStorage.removeItem('isRetry')
+        }
       }
     }
-  }, [])
+  }, [userId])
 
   const fetchDashboardData = async () => {
+    if (!userId) return
+    
     try {
       setLoading(true)
       setError(null)
 
-      // Mock token - replace with actual auth
-      const token = 'your_token_here' // TODO: Implement actual auth
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-      // For demo purposes, we'll use mock data
-      // In production, uncomment the API calls below
-
-      // Fetch progress
-      // const progressRes = await fetch(`${apiUrl}/progress/user123`, {
-      //   headers: { 'Authorization': `Bearer ${token}` }
-      // })
-      // const progressData = await progressRes.json()
+      // Fetch user progress from API
+      const progressRes = await fetch(`${apiUrl}/progress/v2/${userId}`)
+      if (!progressRes.ok) throw new Error('Failed to fetch progress')
+      const progressData = await progressRes.json()
       
-      // Fetch recommendations
-      // const recRes = await fetch(`${apiUrl}/study/recommendations`, {
-      //   headers: { 'Authorization': `Bearer ${token}` }
-      // })
-      // const recData = await recRes.json()
+      // Fetch study recommendations
+      const recRes = await fetch(`${apiUrl}/study/recommendations?user_id=${userId}`)
+      if (!recRes.ok) throw new Error('Failed to fetch recommendations')
+      const recData = await recRes.json()
 
-      // Mock data for demonstration
-      const mockProgress: UserProgress = {
-        user_id: 'demo_user',
-        total_xp: 2450,
-        level: 5,
-        topics: [
-          {
-            topic: 'Python Programming',
-            avg_score: 88.5,
-            total_attempts: 12,
-            last_attempt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            topic: 'Data Structures',
-            avg_score: 68.0,
-            total_attempts: 7,
-            last_attempt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            topic: 'Algorithms',
-            avg_score: 45.0,
-            total_attempts: 5,
-            last_attempt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            topic: 'Web Development',
-            avg_score: 72.0,
-            total_attempts: 8,
-            last_attempt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ]
-      }
-
-      const mockRecommendations: RecommendationResponse = {
-        recommendations: [
-          {
-            topic: 'Algorithms',
-            reason: 'Improve performance (current: 45%, goal: 70%+)',
-            priority: 'high',
-            category: 'weak_area',
-            current_score: 45.0,
-            recommended_difficulty: 'easy',
-            estimated_xp_gain: 132,
-            urgency: 'Address gaps in understanding'
-          },
-          {
-            topic: 'Data Structures',
-            reason: 'Improve performance (current: 68%, goal: 70%+)',
-            priority: 'high',
-            category: 'weak_area',
-            current_score: 68.0,
-            recommended_difficulty: 'medium',
-            estimated_xp_gain: 151,
-            urgency: 'Address gaps in understanding'
-          },
-          {
-            topic: 'Web Development',
-            reason: 'Review needed (last attempt: 15 days ago)',
-            priority: 'medium',
-            category: 'review',
-            current_score: 72.0,
-            recommended_difficulty: 'medium',
-            estimated_xp_gain: 150,
-            urgency: 'Maintain knowledge retention'
-          }
-        ],
-        overall_stats: {
-          total_attempts: 32,
-          avg_score: 68.4,
-          topics_studied: 4
-        },
-        ai_insights: {
-          motivational_message: 'Great progress! Focus on Algorithms to strengthen your foundation.',
-          learning_insight: 'Your Python skills are excellent. Build on that momentum with related topics.',
-          priority_advice: 'Start with easy-level Algorithms quizzes to build confidence and understanding.'
-        }
-      }
-
-      setProgress(mockProgress)
-      setRecommendations(mockRecommendations)
+      setProgress({
+        user_id: userId,
+        total_xp: progressData.total_xp || 0,
+        level: progressData.level || 1,
+        topics: progressData.topics || []
+      })
+      
+      setRecommendations(recData)
     } catch (err) {
-      setError('Failed to load dashboard data')
       console.error('Dashboard error:', err)
+      // Set empty state if API fails
+      setProgress({
+        user_id: userId,
+        total_xp: 0,
+        level: 1,
+        topics: []
+      })
+      setRecommendations({
+        recommendations: [],
+        overall_stats: {
+          total_attempts: 0,
+          avg_score: 0,
+          topics_studied: 0
+        }
+      })
     } finally {
       setTimeout(() => setLoading(false), 800) // Smooth transition
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return <LoadingScreen />
+  }
+
+  if (!userId) {
+    return null // Will redirect via useEffect
   }
 
   if (error) {
@@ -344,6 +299,40 @@ export default function Dashboard() {
             currentXP={progress.total_xp} 
             level={progress.level}
           />
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
+          <Link
+            href="/study"
+            className="border border-terminal-white p-6 hover:bg-terminal-white hover:text-terminal-black transition-colors text-center group"
+          >
+            <div className="text-sm text-terminal-gray group-hover:text-terminal-black mb-2">
+              // ACTION_01
+            </div>
+            <div className="text-xl font-bold">START_NEW_STUDY_SESSION()</div>
+            <div className="text-sm text-terminal-gray group-hover:text-terminal-black mt-2">
+              Generate AI study notes on any topic
+            </div>
+          </Link>
+
+          <Link
+            href="/quiz"
+            className="border border-terminal-white p-6 hover:bg-terminal-white hover:text-terminal-black transition-colors text-center group"
+          >
+            <div className="text-sm text-terminal-gray group-hover:text-terminal-black mb-2">
+              // ACTION_02
+            </div>
+            <div className="text-xl font-bold">TAKE_QUIZ()</div>
+            <div className="text-sm text-terminal-gray group-hover:text-terminal-black mt-2">
+              Test your knowledge with AI-generated quizzes
+            </div>
+          </Link>
         </motion.div>
 
         {/* Stats Overview */}
