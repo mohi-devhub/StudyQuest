@@ -6,10 +6,13 @@ A terminal-style adaptive learning platform with real-time progress tracking and
 
 - 🖥️ **Terminal UI** - Monochrome dashboard with B/W design aesthetic
 - 🎯 **Adaptive Quizzes** - Dynamic difficulty based on performance
-- 🤖 **AI Coach** - Personalized feedback and recommendations
+- 🤖 **AI Coach** - Personalized feedback and topic recommendations
 - ⚡ **Real-time Updates** - Live XP tracking and leaderboard
-- 📊 **Progress Dashboard** - Track learning across topics
-- � **Competitive Leaderboard** - See how you rank
+- 📊 **Progress Dashboard** - Detailed topic breakdown with retry functionality
+- 🏆 **Competitive Leaderboard** - See how you rank globally
+- 🎖️ **Badge System** - 21 badges across 4 tiers (Bronze to Platinum)
+- 🔄 **Retry & Review** - Reinforce learning with topic retries (+10 XP)
+- 📈 **XP Tracking** - Complete history with level progression (500 XP/level)
 - 🎨 **Performance Optimized** - <1.2s page loads, 60fps animations
 
 ## 🏗️ Tech Stack
@@ -83,9 +86,11 @@ Run `SUPABASE_SCHEMA.sql` in your Supabase SQL Editor to create tables and enabl
 
 ## 📚 Documentation
 
+- **[Security Audit](SECURITY_AUDIT_REPORT.md)** - Security review and recommendations
 - **[Project Status](PROJECT_STATUS.md)** - Complete feature overview
 - **[Quiz System](QUIZ_GUIDE.md)** - Quiz flow and implementation
 - **[Real-time Features](REALTIME_GUIDE.md)** - Live updates guide
+- **[Badge System](MIGRATION_BADGES_MILESTONES.sql)** - Achievement schema and setup
 - **[UI Optimization](UI_POLISH_COMPLETE.md)** - Performance details
 - **[E2E Testing](E2E_TESTING_GUIDE.md)** - Testing procedures
 - **[Design Checklist](VISUAL_DESIGN_CHECKLIST.md)** - B/W design validation
@@ -126,7 +131,13 @@ pytest tests/ -v
 
 ## 🚧 Status
 
-**Completed:**
+**Recently Added (Nov 6, 2025):**
+- ✅ Enhanced Progress Dashboard (progress_v2 API with 8 endpoints)
+- ✅ Badge & Milestone System (21 badges, 13 milestones, auto-award)
+- ✅ Adaptive Coach Feedback (AI-powered topic recommendations)
+- ✅ Retry & Review Flow (topic reinforcement with XP rewards)
+
+**Core Features:**
 - ✅ Dashboard with XP tracking
 - ✅ Quiz system (start to result)
 - ✅ Real-time leaderboard
@@ -134,9 +145,12 @@ pytest tests/ -v
 - ✅ Mobile responsive
 - ✅ Performance optimized
 
+**API Endpoints:** 7 routers, 40+ endpoints
+**Database Tables:** 10 tables (users, progress, xp_history, quiz_scores, user_topics, badges, user_badges, milestones, user_milestones, quiz_results)
+
 **Ready for:**
-- Backend API integration
-- Production deployment
+- Production deployment (after security hardening)
+- User authentication integration
 
 ## 📝 License
 
