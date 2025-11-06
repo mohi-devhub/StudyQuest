@@ -31,3 +31,15 @@ export function useRealtimeXP({
 
   return { isConnected }
 }
+
+export function useRealtimeLeaderboard() {
+  const [isConnected, setIsConnected] = useState(true)
+
+  useEffect(() => {
+    // For now, just set connected to true
+    // In the future, this could connect to a WebSocket or Supabase Realtime for live leaderboard updates
+    setIsConnected(true)
+  }, [])
+
+  return { isConnected }
+}
