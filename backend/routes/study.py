@@ -4,7 +4,6 @@ from agents.research_agent import generate_notes, generate_notes_with_fallback
 from agents.coach_agent import study_topic, study_multiple_topics
 from agents.adaptive_quiz_agent import AdaptiveQuizAgent
 from agents.recommendation_agent import RecommendationAgent
-from agents.coach_agent import CoachAgent
 from utils.auth import verify_user, get_current_user_id
 from utils.adaptive_quiz_utils import AdaptiveQuizHelper
 from utils.recommendation_utils import RecommendationHelper
@@ -223,6 +222,98 @@ async def create_study_session(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate study package: {str(e)}"
+        )
+
+
+@router.post("/retry", response_model=StudyPackageResponse)
+async def retry_topic(
+    request: CompleteStudyRequest
+):
+    """
+    Retry a topic - regenerate notes and quiz for review.
+    
+    This endpoint:
+    1. Regenerates study notes and quiz for the topic
+    2. Records a "retry" event in xp_history
+    3. Awards retry XP (10 XP per retry)
+    
+    Request:
+    ```json
+    {
+        "topic": "Neural Networks",
+        "num_questions": 5
+    }
+    ```
+    
+    Response: Same as /study endpoint, plus retry metadata
+    
+    Note: Currently uses demo_user for testing. Add authentication in production.
+    """
+    try:
+        if not request.topic or not request.topic.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Topic cannot be empty"
+            )
+        
+        # TODO: Replace with actual user authentication
+        user_id = 'demo_user'
+        topic = request.topic.strip()
+        
+        # Generate new study package
+        study_package = await study_topic(
+            topic=topic,
+            num_questions=request.num_questions
+        )
+        
+        # Record retry event in xp_history with 10 XP
+        from config.supabase_client import supabase
+        
+        retry_xp = 10
+        
+        # Get current user XP
+        user_response = supabase.table('users').select('total_xp, level').eq('user_id', user_id).single().execute()
+        current_xp = user_response.data.get('total_xp', 0) if user_response.data else 0
+        new_xp = current_xp + retry_xp
+        
+        # Insert XP history record
+        supabase.table('xp_history').insert({
+            'user_id': user_id,
+            'xp_change': retry_xp,
+            'reason': f'retry',
+            'topic': topic,
+            'before_xp': current_xp,
+            'after_xp': new_xp,
+            'metadata': {
+                'action': 'topic_retry',
+                'topic': topic,
+                'retry_xp': retry_xp
+            }
+        }).execute()
+        
+        # Update user's total XP
+        supabase.table('users').update({
+            'total_xp': new_xp,
+            'level': new_xp // 500 + 1  # 500 XP per level
+        }).eq('user_id', user_id).execute()
+        
+        # Add retry metadata to response
+        study_package['metadata']['retry'] = True
+        study_package['metadata']['xp_earned'] = retry_xp
+        study_package['metadata']['total_xp'] = new_xp
+        study_package['metadata']['level'] = new_xp // 500 + 1
+        
+        return study_package
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retry topic: {str(e)}"
         )
 
 
@@ -644,101 +735,42 @@ class CoachFeedbackRequest(BaseModel):
     context: Optional[str] = None
 
 
-@router.post("/quiz/complete", response_model=QuizCompletionResponse)
-async def complete_quiz(
-    request: QuizCompletionRequest,
-    current_user: str = Depends(get_current_user_id)
-):
-    """
-    Complete a quiz and save results to database.
-    
-    - Saves quiz result
-    - Updates user XP and level
-    - Updates topic progress
-    - Generates coach feedback
-    - Returns completion summary
-    """
-    try:
-        # Initialize helper
-        from utils.supabase_client import get_supabase_client
-        supabase = get_supabase_client()
-        
-        # Save quiz result and update progress
-        completion_result = await save_quiz_result(
-            supabase=supabase,
-            user_id=request.user_id,
-            topic=request.topic,
-            difficulty=request.difficulty,
-            score=request.score,
-            total_questions=request.total_questions,
-            correct_answers=request.correct_answers,
-            xp_gained=request.xp_gained,
-            performance_feedback=request.performance_feedback,
-            next_difficulty=request.next_difficulty,
-            quiz_data=request.quiz_data
-        )
-        
-        # Generate coach feedback
-        coach = CoachAgent()
-        feedback = coach.generate_feedback(
-            topic=request.topic,
-            difficulty=request.difficulty,
-            score=request.score,
-            correct_answers=int(request.correct_answers),
-            total_questions=request.total_questions,
-            xp_gained=request.xp_gained,
-            next_difficulty=request.next_difficulty,
-            context=None
-        )
-        
-        return QuizCompletionResponse(
-            quiz_id=completion_result["quiz_id"],
-            user_id=completion_result["user_id"],
-            xp_gained=completion_result["xp_gained"],
-            total_xp=completion_result["total_xp"],
-            current_level=completion_result["current_level"],
-            level_up=completion_result.get("level_up", False),
-            coach_feedback=feedback.dict(),
-            timestamp=completion_result["timestamp"]
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to complete quiz: {str(e)}"
-        )
+# DEPRECATED: Use /progress/v2/submit-quiz instead
+# @router.post("/quiz/complete", response_model=QuizCompletionResponse)
+# async def complete_quiz(
+#     request: QuizCompletionRequest,
+#     current_user: str = Depends(get_current_user_id)
+# ):
+#     """
+#     Complete a quiz and save results to database.
+#     
+#     - Saves quiz result
+#     - Updates user XP and level
+#     - Updates topic progress
+#     - Generates coach feedback
+#     - Returns completion summary
+#     """
+#     raise HTTPException(
+#         status_code=410,
+#         detail="This endpoint is deprecated. Please use POST /progress/v2/submit-quiz instead."
+#     )
 
 
-@router.post("/coach/feedback")
-async def get_coach_feedback(request: CoachFeedbackRequest):
-    """
-    Get motivational feedback from Coach Agent.
-    
-    - Analyzes quiz performance
-    - Generates personalized motivation
-    - Provides learning insights
-    - Suggests next steps
-    """
-    try:
-        coach = CoachAgent()
-        feedback = coach.generate_feedback(
-            topic=request.topic,
-            difficulty=request.difficulty,
-            score=request.score,
-            correct_answers=request.correct_answers,
-            total_questions=request.total_questions,
-            xp_gained=request.xp_gained,
-            next_difficulty=request.next_difficulty,
-            context=request.context
-        )
-        
-        return feedback.dict()
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate coach feedback: {str(e)}"
-        )
+# DEPRECATED: Coach feedback is now included in quiz submission response
+# @router.post("/coach/feedback")
+# async def get_coach_feedback(request: CoachFeedbackRequest):
+#     """
+#     Get motivational feedback from Coach Agent.
+#     
+#     - Analyzes quiz performance
+#     - Generates personalized motivation
+#     - Provides learning insights
+#     - Suggests next steps
+#     """
+#     raise HTTPException(
+#         status_code=410,
+#         detail="This endpoint is deprecated. Coach feedback is included in quiz submission response."
+#     )
 
 
 @router.get("/quiz/result/{quiz_id}")

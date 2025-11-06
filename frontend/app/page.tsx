@@ -52,6 +52,8 @@ export default function Dashboard() {
   const [recommendations, setRecommendations] = useState<RecommendationResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showXPSummary, setShowXPSummary] = useState(false)
+  const [xpSummaryData, setXPSummaryData] = useState<any>(null)
   
   // Real-time updates
   const { showToast, ToastContainer } = useToast()
@@ -102,6 +104,26 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData()
+    
+    // Check if this is a retry session
+    const isRetry = sessionStorage.getItem('isRetry')
+    const studyPackage = sessionStorage.getItem('currentStudyPackage')
+    
+    if (isRetry === 'true' && studyPackage) {
+      const data = JSON.parse(studyPackage)
+      if (data.metadata?.retry && data.metadata?.xp_earned) {
+        setXPSummaryData({
+          topic: data.topic,
+          xp_earned: data.metadata.xp_earned,
+          total_xp: data.metadata.total_xp,
+          level: data.metadata.level
+        })
+        setShowXPSummary(true)
+        
+        // Clear retry flag after showing summary
+        sessionStorage.removeItem('isRetry')
+      }
+    }
   }, [])
 
   const fetchDashboardData = async () => {
@@ -385,6 +407,69 @@ export default function Dashboard() {
       
       {/* Toast Notifications */}
       <ToastContainer />
+      
+      {/* XP Summary Modal (for retry completion) */}
+      {showXPSummary && xpSummaryData && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowXPSummary(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="border border-white bg-black p-8 max-w-md w-full font-mono"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="text-sm text-gray-500 mb-2">// RETRY COMPLETE</div>
+              <h2 className="text-2xl font-bold mb-6 border-b border-white pb-4">
+                XP SUMMARY
+              </h2>
+              
+              <div className="space-y-4 text-left mb-6">
+                <div className="border border-gray-700 p-4">
+                  <div className="text-xs text-gray-500 mb-1">TOPIC</div>
+                  <div className="text-lg font-bold">{xpSummaryData.topic}</div>
+                </div>
+                
+                <div className="border border-gray-700 p-4 bg-white text-black">
+                  <div className="text-xs text-gray-700 mb-1">XP EARNED</div>
+                  <div className="text-3xl font-bold">+{xpSummaryData.xp_earned} XP</div>
+                  <div className="text-xs text-gray-700 mt-1">for retry</div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border border-gray-700 p-3">
+                    <div className="text-xs text-gray-500 mb-1">TOTAL XP</div>
+                    <div className="text-xl font-bold">{xpSummaryData.total_xp}</div>
+                  </div>
+                  <div className="border border-gray-700 p-3">
+                    <div className="text-xs text-gray-500 mb-1">LEVEL</div>
+                    <div className="text-xl font-bold">{xpSummaryData.level}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-xs text-gray-500 mb-4 p-3 border border-gray-700">
+                <code className="block">
+                  $ echo "+{xpSummaryData.xp_earned} XP earned for retry on {xpSummaryData.topic}"<br/>
+                  Total XP: {xpSummaryData.total_xp} | Level {xpSummaryData.level}
+                </code>
+              </div>
+              
+              <button
+                onClick={() => setShowXPSummary(false)}
+                className="w-full border border-white px-6 py-3 hover:bg-white hover:text-black transition-colors font-mono"
+              >
+                [CONTINUE]
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   )
 }
