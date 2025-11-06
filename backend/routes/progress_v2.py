@@ -6,17 +6,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from datetime import datetime
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Supabase client
-from supabase import create_client, Client
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+from config.supabase_client import supabase
 
 router = APIRouter(
     prefix="/progress/v2",

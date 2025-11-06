@@ -4,7 +4,7 @@ Helper functions for fetching user performance data and determining adaptive dif
 """
 
 from typing import Dict, Optional, List
-from backend.config.supabase_client import supabase
+from config.supabase_client import supabase
 
 
 class AdaptiveQuizHelper:

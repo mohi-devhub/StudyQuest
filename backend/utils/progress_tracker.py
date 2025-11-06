@@ -4,7 +4,7 @@ Handles progress updates and XP point awards
 """
 from typing import Optional, Dict, List, Any
 from datetime import datetime
-from backend.config.supabase_client import supabase
+from config.supabase_client import supabase
 
 
 class ProgressTracker:
