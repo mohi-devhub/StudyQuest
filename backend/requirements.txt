@@ -2,6 +2,8 @@ fastapi
 uvicorn
 pydantic[email]
 langchain
+langchain-openai
+langchain-core
 crewai
 httpx
 python-dotenv
