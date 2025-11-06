@@ -129,14 +129,15 @@ async def get_all_badges(category: Optional[str] = None):
 
 @router.get("/user/{user_id}/badges")
 async def get_user_badges(user_id: str, unseen_only: bool = False, current_user: dict = Depends(verify_user)):
-    if user_id != current_user['id']:
-        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badges")
     """
     Get badges unlocked by a specific user.
     
     Query params:
     - unseen_only: If true, only return badges user hasn't seen yet
     """
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badges")
+    
     try:
         query = supabase.table('user_badges').select('''
             id,
@@ -190,11 +191,12 @@ async def get_user_badges(user_id: str, unseen_only: bool = False, current_user:
 
 @router.get("/user/{user_id}/summary")
 async def get_user_achievements_summary(user_id: str, current_user: dict = Depends(verify_user)):
-    if user_id != current_user['id']:
-        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own achievement summary")
     """
     Get summary of user's achievements (badge counts, milestones).
     """
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own achievement summary")
+    
     try:
         # Use the view
         summary = supabase.table('user_achievements_summary').select('*').eq('user_id', user_id).single().execute()
@@ -219,12 +221,13 @@ async def get_user_achievements_summary(user_id: str, current_user: dict = Depen
 
 @router.post("/user/{user_id}/check")
 async def check_and_award_badges(user_id: str, current_user: dict = Depends(verify_user)):
-    if user_id != current_user['id']:
-        raise HTTPException(status_code=403, detail="Forbidden: You can only check and award badges for your own account")
     """
     Check user's stats and award any eligible badges.
     Returns list of newly unlocked badges.
     """
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only check and award badges for your own account")
+    
     try:
         # Call the Postgres function
         result = supabase.rpc('check_and_award_badges', {'p_user_id': user_id}).execute()
@@ -244,12 +247,13 @@ async def check_and_award_badges(user_id: str, current_user: dict = Depends(veri
 
 @router.post("/user/{user_id}/mark-seen")
 async def mark_badges_as_seen(user_id: str, badge_ids: List[str] = None, current_user: dict = Depends(verify_user)):
-    if user_id != current_user['id']:
-        raise HTTPException(status_code=403, detail="Forbidden: You can only mark your own badges as seen")
     """
     Mark badge notifications as seen by the user.
     If badge_ids provided, mark only those. Otherwise mark all unseen.
     """
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only mark your own badges as seen")
+    
     try:
         query = supabase.table('user_badges').update({'seen': True}).eq('user_id', user_id)
         
@@ -295,9 +299,10 @@ async def get_all_milestones(category: Optional[str] = None):
 
 @router.get("/user/{user_id}/milestones")
 async def get_user_milestones(user_id: str, current_user: dict = Depends(verify_user)):
+    """Get milestones achieved by a specific user"""
     if user_id != current_user['id']:
         raise HTTPException(status_code=403, detail="Forbidden: You can only access your own milestones")
-    """Get milestones achieved by a specific user"""
+    
     try:
         result = supabase.table('user_milestones').select('''
             id,
@@ -362,12 +367,13 @@ async def get_badge_leaderboard(limit: int = 10):
 
 @router.get("/user/{user_id}/progress")
 async def get_badge_progress(user_id: str, current_user: dict = Depends(verify_user)):
-    if user_id != current_user['id']:
-        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badge progress")
     """
     Get user's progress toward unearned badges.
     Shows current stats vs. requirements.
     """
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badge progress")
+    
     try:
         # Get user stats
         user = supabase.table('users').select('total_xp, level').eq('user_id', user_id).single().execute()
