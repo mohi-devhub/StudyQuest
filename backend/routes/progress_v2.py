@@ -6,6 +6,12 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from datetime import datetime
+from utils.error_handlers import (
+    validate_topic,
+    validate_difficulty,
+    handle_database_error,
+    ErrorResponse
+)
 
 # Supabase client
 from config.supabase_client import supabase
@@ -23,11 +29,11 @@ router = APIRouter(
 class QuizSubmission(BaseModel):
     """Request body for quiz submission"""
     user_id: str = Field(..., description="User ID")
-    topic: str = Field(..., min_length=1, max_length=200, description="Topic name")
+    topic: str = Field(..., min_length=1, max_length=50, description="Topic name (max 50 chars)")
     difficulty: str = Field(default='medium', description="easy, medium, hard, expert")
     correct: int = Field(..., ge=0, description="Number of correct answers")
     total: int = Field(..., ge=1, le=50, description="Total number of questions")
-    time_taken: Optional[int] = Field(None, description="Time taken in seconds")
+    time_taken: Optional[int] = Field(None, ge=0, description="Time taken in seconds")
     answers: Optional[List[str]] = Field(default=[], description="User answers")
     questions: Optional[List[Dict]] = Field(default=[], description="Quiz questions")
     metadata: Optional[Dict] = Field(default={}, description="Additional data")
@@ -147,18 +153,50 @@ async def submit_quiz(submission: QuizSubmission):
     - xp_history (via trigger)
     - users.total_xp
     
+    Features:
+    - Input validation (topic ≤ 50 chars, difficulty validation)
+    - Standardized error responses
+    - Graceful database error handling
+    
     Returns the quiz result and XP earned.
     """
     try:
+        # Validate inputs
+        validated_topic = validate_topic(submission.topic, max_length=50)
+        validated_difficulty = validate_difficulty(submission.difficulty)
+        
+        # Validate score
+        if submission.correct > submission.total:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "status": "error",
+                    "message": "Correct answers cannot exceed total questions",
+                    "code": "VALIDATION_ERROR"
+                }
+            )
+        
         # Calculate score and XP
         score = (submission.correct / submission.total) * 100
-        xp_earned = calculate_xp(submission.correct, submission.total, submission.difficulty)
+        xp_earned = calculate_xp(submission.correct, submission.total, validated_difficulty)
         
         # Get current user XP and level
-        user_result = supabase.table('users').select('total_xp, level').eq('user_id', submission.user_id).single().execute()
-        
-        if not user_result.data:
-            raise HTTPException(status_code=404, detail=f"User {submission.user_id} not found")
+        try:
+            user_result = supabase.table('users').select('total_xp, level').eq(
+                'user_id', submission.user_id
+            ).single().execute()
+            
+            if not user_result.data:
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "status": "error",
+                        "message": f"User {submission.user_id} not found",
+                        "code": "NOT_FOUND"
+                    }
+                )
+        except Exception as e:
+            raise handle_database_error("user lookup")
         
         previous_xp = user_result.data['total_xp']
         previous_level = user_result.data['level']
@@ -166,60 +204,76 @@ async def submit_quiz(submission: QuizSubmission):
         new_level = calculate_level(new_xp)
         
         # Insert quiz score (triggers will auto-update user_topics)
-        quiz_result = supabase.table('quiz_scores').insert({
-            'user_id': submission.user_id,
-            'topic': submission.topic,
-            'difficulty': submission.difficulty,
-            'correct': submission.correct,
-            'total': submission.total,
-            'score': score,
-            'xp_gained': xp_earned,
-            'time_taken': submission.time_taken,
-            'answers': submission.answers,
-            'questions': submission.questions,
-            'metadata': submission.metadata
-        }).execute()
+        try:
+            quiz_result = supabase.table('quiz_scores').insert({
+                'user_id': submission.user_id,
+                'topic': validated_topic,
+                'difficulty': validated_difficulty,
+                'correct': submission.correct,
+                'total': submission.total,
+                'score': score,
+                'xp_gained': xp_earned,
+                'time_taken': submission.time_taken,
+                'answers': submission.answers,
+                'questions': submission.questions,
+                'metadata': submission.metadata
+            }).execute()
+        except Exception as e:
+            print(f"Quiz score insertion error: {str(e)}")
+            raise handle_database_error("quiz submission")
         
         # Insert XP history
-        xp_history_result = supabase.table('xp_history').insert({
-            'user_id': submission.user_id,
-            'xp_change': xp_earned,
-            'reason': 'quiz_complete',
-            'topic': submission.topic,
-            'quiz_id': quiz_result.data[0]['id'],
-            'previous_xp': previous_xp,
-            'new_xp': new_xp,
-            'previous_level': previous_level,
-            'new_level': new_level,
-            'metadata': {
-                'score': score,
-                'difficulty': submission.difficulty,
-                'correct': submission.correct,
-                'total': submission.total
-            }
-        }).execute()
+        try:
+            xp_history_result = supabase.table('xp_history').insert({
+                'user_id': submission.user_id,
+                'xp_change': xp_earned,
+                'reason': 'quiz_complete',
+                'topic': validated_topic,
+                'quiz_id': quiz_result.data[0]['id'],
+                'previous_xp': previous_xp,
+                'new_xp': new_xp,
+                'previous_level': previous_level,
+                'new_level': new_level,
+                'metadata': {
+                    'score': score,
+                    'difficulty': validated_difficulty,
+                    'correct': submission.correct,
+                    'total': submission.total
+                }
+            }).execute()
+        except Exception as e:
+            print(f"XP history insertion error: {str(e)}")
+            # Continue even if XP history fails
         
         # Update user's total XP and level
-        user_update = supabase.table('users').update({
-            'total_xp': new_xp,
-            'level': new_level
-        }).eq('user_id', submission.user_id).execute()
+        try:
+            user_update = supabase.table('users').update({
+                'total_xp': new_xp,
+                'level': new_level
+            }).eq('user_id', submission.user_id).execute()
+        except Exception as e:
+            print(f"User update error: {str(e)}")
+            raise handle_database_error("user XP update")
         
         # Also insert into xp_logs for backward compatibility
-        xp_log = supabase.table('xp_logs').insert({
-            'user_id': submission.user_id,
-            'xp_amount': xp_earned,
-            'source': 'quiz_complete',
-            'topic': submission.topic,
-            'metadata': {
-                'score': score,
-                'difficulty': submission.difficulty,
-                'quiz_id': quiz_result.data[0]['id']
-            }
-        }).execute()
+        try:
+            xp_log = supabase.table('xp_logs').insert({
+                'user_id': submission.user_id,
+                'xp_amount': xp_earned,
+                'source': 'quiz_complete',
+                'topic': validated_topic,
+                'metadata': {
+                    'score': score,
+                    'difficulty': validated_difficulty,
+                    'quiz_id': quiz_result.data[0]['id']
+                }
+            }).execute()
+        except Exception as e:
+            print(f"XP log insertion error: {str(e)}")
+            # Continue even if xp_logs fails (backward compatibility table)
         
         return {
-            "success": True,
+            "status": "success",
             "quiz_id": quiz_result.data[0]['id'],
             "score": round(score, 2),
             "correct": submission.correct,
@@ -235,8 +289,19 @@ async def submit_quiz(submission: QuizSubmission):
             "feedback": get_feedback(score)
         }
         
+    except HTTPException:
+        raise
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to submit quiz: {str(e)}")
+        print(f"Quiz submission error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": "Failed to submit quiz. Please try again.",
+                "code": "SUBMISSION_ERROR"
+            }
+        )
 
 
 @router.get("/user/{user_id}")

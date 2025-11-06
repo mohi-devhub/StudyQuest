@@ -8,7 +8,17 @@ from utils.auth import verify_user, get_current_user_id
 from utils.adaptive_quiz_utils import AdaptiveQuizHelper
 from utils.recommendation_utils import RecommendationHelper
 from utils.quiz_completion_utils import save_quiz_result, get_quiz_result
+from utils.error_handlers import (
+    validate_topic, 
+    validate_num_questions,
+    handle_api_timeout_error,
+    handle_generation_error,
+    get_fallback_message,
+    ErrorResponse
+)
+from utils.cache_utils import get_cached_content, set_cached_content
 from typing import List, Dict, Optional
+import asyncio
 
 router = APIRouter(
     prefix="/study",
@@ -50,14 +60,16 @@ class NotesResponse(BaseModel):
 
 class CompleteStudyRequest(BaseModel):
     """Request for complete study workflow (notes + quiz)"""
-    topic: str = Field(..., min_length=1, max_length=200)
+    topic: str = Field(..., min_length=1, max_length=50, description="Topic to study (max 50 chars)")
     num_questions: int = Field(5, ge=1, le=20, description="Number of quiz questions to generate")
+    use_cache: bool = Field(True, description="Use cached content if available")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "topic": "Python Decorators",
-                "num_questions": 5
+                "num_questions": 5,
+                "use_cache": True
             }
         }
 
@@ -164,11 +176,18 @@ async def create_study_session(
     - Comprehensive study notes (summary + key points)
     - Quiz questions with answers and explanations
     
+    Features:
+    - Input validation (topic ≤ 50 chars)
+    - Caching to reduce API calls
+    - Graceful error handling with fallback messages
+    - Timeout protection (30 seconds)
+    
     Request:
     ```json
     {
         "topic": "Neural Networks",
-        "num_questions": 5
+        "num_questions": 5,
+        "use_cache": true
     }
     ```
     
@@ -191,37 +210,103 @@ async def create_study_session(
         ],
         "metadata": {
             "num_key_points": 7,
-            "num_questions": 5
+            "num_questions": 5,
+            "cached": false,
+            "generation_time_ms": 2345
         }
     }
     ```
     
     Requires authentication.
     """
+    import time
+    start_time = time.time()
+    
     try:
-        if not request.topic or not request.topic.strip():
+        # Validate inputs
+        validated_topic = validate_topic(request.topic, max_length=50)
+        validated_num_questions = validate_num_questions(request.num_questions, min_val=1, max_val=20)
+        
+        # Check cache first (if enabled)
+        if request.use_cache:
+            cached_content = await get_cached_content(
+                topic=validated_topic,
+                content_type='study_package',
+                num_questions=validated_num_questions
+            )
+            
+            if cached_content:
+                # Return cached content with metadata
+                cached_content['metadata']['cached'] = True
+                cached_content['metadata']['cache_hit'] = True
+                return cached_content
+        
+        # Generate new content with timeout protection
+        try:
+            study_package = await asyncio.wait_for(
+                study_topic(
+                    topic=validated_topic,
+                    num_questions=validated_num_questions
+                ),
+                timeout=30.0  # 30 second timeout
+            )
+            
+            # Add metadata
+            generation_time_ms = int((time.time() - start_time) * 1000)
+            study_package['metadata'] = study_package.get('metadata', {})
+            study_package['metadata']['cached'] = False
+            study_package['metadata']['generation_time_ms'] = generation_time_ms
+            
+            # Cache the result for future use
+            await set_cached_content(
+                topic=validated_topic,
+                content_type='study_package',
+                content=study_package,
+                num_questions=validated_num_questions
+            )
+            
+            return study_package
+            
+        except asyncio.TimeoutError:
+            # Handle timeout gracefully
+            fallback = get_fallback_message('study_package')
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Topic cannot be empty"
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail={
+                    "status": "error",
+                    "message": fallback['message'],
+                    "code": "API_TIMEOUT",
+                    "suggestion": fallback['suggestion']
+                }
             )
         
-        # Use Coach Agent to coordinate the complete workflow
-        study_package = await study_topic(
-            topic=request.topic.strip(),
-            num_questions=request.num_questions
-        )
-        
-        return study_package
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
         
     except ValueError as e:
+        # Handle validation errors
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail={
+                "status": "error",
+                "message": str(e),
+                "code": "VALIDATION_ERROR"
+            }
         )
+        
     except Exception as e:
+        # Handle unexpected errors
+        print(f"Study package generation error: {str(e)}")
+        fallback = get_fallback_message('study_package')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate study package: {str(e)}"
+            detail={
+                "status": "error",
+                "message": fallback['message'],
+                "code": "GENERATION_ERROR",
+                "suggestion": fallback['suggestion']
+            }
         )
 
 

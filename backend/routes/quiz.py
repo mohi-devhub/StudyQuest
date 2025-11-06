@@ -1,8 +1,19 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from agents.quiz_agent import generate_quiz, generate_quiz_with_fallback, generate_quiz_from_topic
 from utils.auth import verify_user
+from utils.error_handlers import (
+    validate_topic,
+    validate_num_questions,
+    handle_api_timeout_error,
+    handle_generation_error,
+    get_fallback_message,
+    ErrorResponse
+)
+from utils.cache_utils import get_cached_content, set_cached_content
 from typing import List, Optional
+import asyncio
+import time
 
 router = APIRouter(
     prefix="/quiz",
@@ -24,10 +35,11 @@ class GenerateQuizFromNotesRequest(BaseModel):
 
 
 class GenerateQuizFromTopicRequest(BaseModel):
-    topic: str
-    summary: str
-    key_points: List[str]
-    num_questions: Optional[int] = 5
+    topic: str = Field(..., min_length=1, max_length=50, description="Topic name (max 50 chars)")
+    summary: str = Field(..., min_length=10, description="Topic summary")
+    key_points: List[str] = Field(..., min_items=1, description="Key points about the topic")
+    num_questions: Optional[int] = Field(5, ge=1, le=20, description="Number of questions")
+    use_cache: bool = Field(True, description="Use cached quiz if available")
     
     class Config:
         json_schema_extra = {
@@ -39,7 +51,8 @@ class GenerateQuizFromTopicRequest(BaseModel):
                     "They can accept parameters and return values",
                     "Functions promote code reusability"
                 ],
-                "num_questions": 5
+                "num_questions": 5,
+                "use_cache": True
             }
         }
 
@@ -90,46 +103,81 @@ async def generate_quiz_from_notes(
     """
     Generate multiple-choice quiz questions from study notes.
     
-    Creates 5 (or specified number of) unique multiple-choice questions
-    based on the provided study material.
+    Creates quiz questions based on the provided study material with:
+    - Input validation
+    - Graceful error handling
+    - Timeout protection (20 seconds)
     
     Requires authentication.
     """
+    start_time = time.time()
+    
     try:
+        # Validate inputs
         if not request.notes or not request.notes.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Notes cannot be empty"
+                detail={
+                    "status": "error",
+                    "message": "Notes cannot be empty",
+                    "code": "VALIDATION_ERROR"
+                }
             )
         
         # Validate num_questions
-        num_questions = request.num_questions or 5
-        if num_questions < 1 or num_questions > 20:
+        num_questions = validate_num_questions(request.num_questions or 5, min_val=1, max_val=20)
+        
+        # Generate quiz with timeout protection
+        try:
+            questions = await asyncio.wait_for(
+                generate_quiz_with_fallback(
+                    request.notes.strip(),
+                    num_questions
+                ),
+                timeout=20.0  # 20 second timeout
+            )
+            
+            return {
+                "questions": questions,
+                "total_questions": len(questions)
+            }
+            
+        except asyncio.TimeoutError:
+            fallback = get_fallback_message('quiz')
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Number of questions must be between 1 and 20"
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail={
+                    "status": "error",
+                    "message": fallback['message'],
+                    "code": "API_TIMEOUT",
+                    "suggestion": fallback['suggestion']
+                }
             )
         
-        # Generate quiz using the quiz agent with fallback
-        questions = await generate_quiz_with_fallback(
-            request.notes.strip(),
-            num_questions
-        )
-        
-        return {
-            "questions": questions,
-            "total_questions": len(questions)
-        }
+    except HTTPException:
+        raise
         
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail={
+                "status": "error",
+                "message": str(e),
+                "code": "VALIDATION_ERROR"
+            }
         )
+        
     except Exception as e:
+        print(f"Quiz generation error: {str(e)}")
+        fallback = get_fallback_message('quiz')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate quiz: {str(e)}"
+            detail={
+                "status": "error",
+                "message": fallback['message'],
+                "code": "GENERATION_ERROR",
+                "suggestion": fallback['suggestion']
+            }
         )
 
 
@@ -141,53 +189,107 @@ async def generate_quiz_from_structured_notes(
     """
     Generate multiple-choice quiz questions from structured notes.
     
-    Creates quiz questions from a topic, summary, and key points.
-    This is useful when you already have structured study notes.
+    Creates quiz questions from a topic, summary, and key points with:
+    - Input validation (topic ≤ 50 chars)
+    - Caching support
+    - Graceful error handling
+    - Timeout protection (20 seconds)
     
     Requires authentication.
     """
+    start_time = time.time()
+    
     try:
-        if not request.topic or not request.topic.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Topic cannot be empty"
-            )
+        # Validate inputs
+        validated_topic = validate_topic(request.topic, max_length=50)
         
         if not request.key_points or len(request.key_points) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Key points cannot be empty"
+                detail={
+                    "status": "error",
+                    "message": "Key points cannot be empty",
+                    "code": "VALIDATION_ERROR"
+                }
             )
         
-        # Validate num_questions
-        num_questions = request.num_questions or 5
-        if num_questions < 1 or num_questions > 20:
+        num_questions = validate_num_questions(request.num_questions or 5, min_val=1, max_val=20)
+        
+        # Check cache first (if enabled)
+        if request.use_cache:
+            cached_quiz = await get_cached_content(
+                topic=validated_topic,
+                content_type='quiz',
+                num_questions=num_questions
+            )
+            
+            if cached_quiz:
+                return {
+                    "questions": cached_quiz.get('questions', []),
+                    "total_questions": len(cached_quiz.get('questions', []))
+                }
+        
+        # Generate quiz with timeout protection
+        try:
+            questions = await asyncio.wait_for(
+                generate_quiz_from_topic(
+                    topic=validated_topic,
+                    summary=request.summary.strip(),
+                    key_points=request.key_points,
+                    num_questions=num_questions
+                ),
+                timeout=20.0  # 20 second timeout
+            )
+            
+            # Cache the result
+            quiz_data = {"questions": questions}
+            await set_cached_content(
+                topic=validated_topic,
+                content_type='quiz',
+                content=quiz_data,
+                num_questions=num_questions
+            )
+            
+            return {
+                "questions": questions,
+                "total_questions": len(questions)
+            }
+            
+        except asyncio.TimeoutError:
+            fallback = get_fallback_message('quiz')
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Number of questions must be between 1 and 20"
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail={
+                    "status": "error",
+                    "message": fallback['message'],
+                    "code": "API_TIMEOUT",
+                    "suggestion": fallback['suggestion']
+                }
             )
         
-        # Generate quiz from structured notes
-        questions = await generate_quiz_from_topic(
-            topic=request.topic.strip(),
-            summary=request.summary.strip(),
-            key_points=request.key_points,
-            num_questions=num_questions
-        )
-        
-        return {
-            "questions": questions,
-            "total_questions": len(questions)
-        }
+    except HTTPException:
+        raise
         
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail={
+                "status": "error",
+                "message": str(e),
+                "code": "VALIDATION_ERROR"
+            }
         )
+        
     except Exception as e:
+        print(f"Quiz generation error: {str(e)}")
+        fallback = get_fallback_message('quiz')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate quiz: {str(e)}"
+            detail={
+                "status": "error",
+                "message": fallback['message'],
+                "code": "GENERATION_ERROR",
+                "suggestion": fallback['suggestion']
+            }
         )
 
