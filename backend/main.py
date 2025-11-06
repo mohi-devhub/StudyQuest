@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import routers
-from routes import auth, study, quiz, progress, progress_v2
+from routes import auth, study, quiz, progress, progress_v2, achievements, coach
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -33,6 +33,8 @@ app.include_router(study.router)
 app.include_router(quiz.router)
 app.include_router(progress.router)
 app.include_router(progress_v2.router)  # Enhanced progress tracking
+app.include_router(achievements.router)  # Badges & achievements
+app.include_router(coach.router)  # Adaptive coach feedback
 
 # Root endpoint
 @app.get("/")

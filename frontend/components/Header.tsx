@@ -21,7 +21,19 @@ export default function Header() {
             // Developer Dashboard
           </p>
         </div>
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/progress"
+            className="border border-terminal-gray px-4 py-2 hover:border-terminal-white hover:bg-terminal-white hover:text-terminal-black transition-colors text-sm"
+          >
+            📊 PROGRESS
+          </Link>
+          <Link
+            href="/achievements"
+            className="border border-terminal-gray px-4 py-2 hover:border-terminal-white hover:bg-terminal-white hover:text-terminal-black transition-colors text-sm"
+          >
+            [★] ACHIEVEMENTS
+          </Link>
           <Link
             href="/leaderboard"
             className="border border-terminal-white px-4 py-2 hover:bg-terminal-white hover:text-terminal-black transition-colors text-sm"
