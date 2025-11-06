@@ -279,6 +279,209 @@ StudyQuest/
 
 ---
 
-*Last Updated: November 5, 2025*  
-*Version: 1.0.0*  
-*Status: Production Ready*
+## 🔐 Security Status
+
+**Last Security Audit:** November 6, 2025  
+**Status:** ✅ Secure for Development | ⚠️ 3 Recommendations Before Production
+
+### Security Checklist
+- ✅ No hardcoded secrets or API keys
+- ✅ All credentials in environment variables
+- ✅ SQL injection protection (Supabase parameterization)
+- ✅ XSS prevention (React built-in escaping)
+- ✅ Input sanitization (prompt injection protection)
+- ✅ CORS properly configured
+- ⚠️ Authentication needed on retry endpoint
+- ⚠️ Rate limiting recommended for AI endpoints
+- ⚠️ Enhanced request validation suggested
+
+**See:** [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md) for full details
+
+---
+
+## 📦 Recent Additions (November 6, 2025)
+
+### 1. Enhanced Progress Dashboard (Commit: f424faa)
+**Routes:** `backend/routes/progress_v2.py` (8 endpoints)
+- GET `/progress/v2/user/{user_id}/stats` - User statistics summary
+- GET `/progress/v2/user/{user_id}/topics` - Topic-by-topic progress
+- POST `/progress/v2/submit-quiz` - Submit quiz with XP calculation
+- GET `/progress/v2/user/{user_id}/xp-history` - Complete XP timeline
+- GET `/progress/v2/user/{user_id}/quiz-history` - All quiz attempts
+- GET `/progress/v2/leaderboard` - Global rankings
+
+**Frontend:** `frontend/app/progress/page.tsx`
+- Terminal-style progress table with topic breakdown
+- XP progress bar with level display (500 XP per level)
+- Stats grid: Mastered/Completed/In Progress counts
+- Real-time updates integration
+- Topic status: not_started → in_progress → completed → mastered
+
+**Features:**
+- XP Formula: Base(100) + Difficulty(10-50) + ScoreTier(0-50)
+- Best score tracking per topic
+- Attempt count and last attempted timestamp
+- Average score calculation
+
+---
+
+### 2. Badge & Milestone System (Commit: 6980a3f)
+**Database:** `MIGRATION_BADGES_MILESTONES.sql`
+- 4 new tables: badges, user_badges, milestones, user_milestones
+- 21 default badges across 4 tiers:
+  * Bronze [★]: Novice Scholar (L5), First Steps, First Mastery
+  * Silver [★★]: Curious Mind (L10), XP Collector (1K), Quiz Novice
+  * Gold [★★★]: Knowledge Seeker (L20), XP Hoarder (5K), Quiz Expert
+  * Platinum [◆]: Knowledge Master (L50), XP Legend (50K), Quiz Legend
+- 13 milestones with XP/quiz/topic thresholds
+- Auto-award function: `check_and_award_badges(p_user_id)`
+- Trigger: `on_user_xp_update` fires on XP/level changes
+
+**Backend:** `backend/routes/achievements.py` (10 endpoints)
+- GET `/achievements/all` - List all available badges
+- GET `/achievements/user/{user_id}/badges` - User's unlocked badges
+- GET `/achievements/user/{user_id}/summary` - Achievement statistics
+- POST `/achievements/user/{user_id}/check` - Trigger badge checks
+- POST `/achievements/user/{user_id}/mark-seen` - Mark badges as viewed
+- GET `/achievements/milestones` - All milestones
+- GET `/achievements/user/{user_id}/milestones` - User milestone progress
+- GET `/achievements/leaderboard/badges` - Badge rankings
+
+**Frontend:** `frontend/app/achievements/page.tsx`
+- Terminal-style achievements page
+- Badge display with symbols, names, descriptions, unlock dates
+- Summary stats: Total, Bronze, Silver, Gold, Platinum counts
+- Tier system legend
+- Navigation: [★ ACHIEVEMENTS] link in header
+
+**Features:**
+- Real-time badge unlocking
+- Prevents duplicate awards
+- Unlock date tracking
+- Badge metadata (criteria, tier, symbol)
+
+---
+
+### 3. Adaptive Coach Feedback (Commit: e5af952)
+**Backend:** `backend/agents/adaptive_coach_agent.py`
+- `analyze_user_performance()`: Queries Supabase for user stats
+  * Categorizes topics: weak (< 60%), strong (>= 80%)
+  * Tracks recent quiz activity
+  * Calculates overall performance metrics
+  
+- `generate_topic_recommendations()`: AI-powered suggestions
+  * Uses OpenRouter (Gemini 2.0 Flash) via LangChain
+  * Analyzes weak/strong topics and recent activity
+  * Returns 3-5 contextual recommendations
+  
+- `generate_motivational_message()`: Personalized encouragement
+  * Creates 1-2 terminal-style messages (< 100 chars)
+  * Adapts to performance level
+  * Fallback messages if AI unavailable
+
+- Prompt injection protection: Sanitizes all inputs
+- Fixed imports: `langchain.schema` → `langchain_core.messages`
+
+**API Routes:** `backend/routes/coach.py`
+- GET `/coach/feedback/{user_id}` - Complete adaptive feedback
+- GET `/coach/health` - Service health check
+
+**Frontend:** `frontend/components/CoachFeedbackPanel.tsx`
+- Terminal-style feedback panel for Progress Dashboard
+- 5 sections:
+  1. Motivational Messages (large white text)
+  2. Weak Topics (< 60%) with [!] symbols, recommendations
+  3. Recommended Topics (AI-generated, numbered list)
+  4. Next Steps (green ▸ arrows)
+  5. Performance Summary (terminal command format)
+
+**Features:**
+- Database-driven analysis (user_topics, quiz_scores)
+- AI-powered contextual suggestions
+- Real-time performance analysis
+- Error handling with graceful degradation
+
+---
+
+### 4. Retry & Review Flow (Commit: 40b9cb4)
+**Backend:** `backend/routes/study.py`
+- POST `/study/retry` - Regenerate notes and quiz for topic review
+  * Records retry event in `xp_history` table
+  * Awards 10 XP per retry
+  * Updates user total_xp and level
+  * Returns study package with retry metadata
+  * Note: Currently uses demo_user (auth to be added)
+
+**Frontend:** `frontend/app/progress/page.tsx`
+- Added ACTION column to topics table
+- [↻ RETRY] button for completed/mastered/in-progress topics
+- Loading state: [LOADING...] during retry
+- Session storage for retry flag
+- Navigation to study flow after retry
+
+**XP Summary Modal:** `frontend/app/page.tsx`
+- Terminal-style modal after retry completion
+- Displays: Topic, XP earned, Total XP, Level
+- Terminal command format output
+- Click-to-dismiss functionality
+
+**API Proxy:** `frontend/app/api/study/retry/route.ts`
+- Next.js proxy for retry endpoint
+
+**Flow:**
+1. User clicks [↻ RETRY] on topic
+2. Backend regenerates notes/quiz, awards 10 XP
+3. Frontend stores package in sessionStorage
+4. Navigates to dashboard
+5. XP Summary modal appears
+6. User continues to study/quiz
+
+---
+
+## 🎯 API Overview
+
+**7 Routers, 45+ Endpoints:**
+
+1. **auth.router** - Authentication (Supabase JWT)
+2. **study.router** - Study sessions & retry
+3. **quiz.router** - Quiz generation
+4. **progress.router** - Basic progress tracking
+5. **progress_v2.router** - Enhanced tracking (8 endpoints)
+6. **achievements.router** - Badges & milestones (10 endpoints)
+7. **coach.router** - Adaptive feedback (2 endpoints)
+
+---
+
+## 💾 Database Schema
+
+**10 Tables:**
+1. `users` - User profiles, XP, level
+2. `progress` - Legacy progress tracking
+3. `xp_logs` - XP change log
+4. `quiz_results` - Quiz completion records
+5. `user_topics` - **NEW** Topic-by-topic progress
+6. `quiz_scores` - **NEW** Individual quiz attempts
+7. `xp_history` - **NEW** Complete XP timeline
+8. `badges` - **NEW** Badge definitions (21 rows)
+9. `user_badges` - **NEW** Unlocked badges
+10. `milestones` - **NEW** Milestone definitions (13 rows)
+11. `user_milestones` - **NEW** Milestone progress
+
+**4 Views:**
+- `user_progress_summary` - Aggregate stats
+- `recent_quiz_activity` - Recent attempts
+- `xp_leaderboard_detailed` - Global rankings
+- `user_achievements_summary` - Badge stats
+
+**8 Triggers:**
+- Auto-calculate quiz scores
+- Update topic progress on quiz completion
+- Sync XP changes to history
+- Award badges on XP/level updates
+- Update user stats on quiz submission
+
+---
+
+*Last Updated: November 6, 2025*  
+*Version: 1.1.0*  
+*Status: Production Ready (Auth & Rate Limiting Required)*
