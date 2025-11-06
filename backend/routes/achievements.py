@@ -2,10 +2,11 @@
 Badges & Achievements Routes
 Handles badge unlocking, milestone tracking, and achievement display
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from datetime import datetime
+from utils.auth import verify_user
 
 # Supabase client
 from config.supabase_client import supabase
@@ -127,7 +128,9 @@ async def get_all_badges(category: Optional[str] = None):
 
 
 @router.get("/user/{user_id}/badges")
-async def get_user_badges(user_id: str, unseen_only: bool = False):
+async def get_user_badges(user_id: str, unseen_only: bool = False, current_user: dict = Depends(verify_user)):
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badges")
     """
     Get badges unlocked by a specific user.
     
@@ -186,7 +189,9 @@ async def get_user_badges(user_id: str, unseen_only: bool = False):
 
 
 @router.get("/user/{user_id}/summary")
-async def get_user_achievements_summary(user_id: str):
+async def get_user_achievements_summary(user_id: str, current_user: dict = Depends(verify_user)):
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own achievement summary")
     """
     Get summary of user's achievements (badge counts, milestones).
     """
@@ -213,7 +218,9 @@ async def get_user_achievements_summary(user_id: str):
 
 
 @router.post("/user/{user_id}/check")
-async def check_and_award_badges(user_id: str):
+async def check_and_award_badges(user_id: str, current_user: dict = Depends(verify_user)):
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only check and award badges for your own account")
     """
     Check user's stats and award any eligible badges.
     Returns list of newly unlocked badges.
@@ -236,7 +243,9 @@ async def check_and_award_badges(user_id: str):
 
 
 @router.post("/user/{user_id}/mark-seen")
-async def mark_badges_as_seen(user_id: str, badge_ids: List[str] = None):
+async def mark_badges_as_seen(user_id: str, badge_ids: List[str] = None, current_user: dict = Depends(verify_user)):
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only mark your own badges as seen")
     """
     Mark badge notifications as seen by the user.
     If badge_ids provided, mark only those. Otherwise mark all unseen.
@@ -285,7 +294,9 @@ async def get_all_milestones(category: Optional[str] = None):
 
 
 @router.get("/user/{user_id}/milestones")
-async def get_user_milestones(user_id: str):
+async def get_user_milestones(user_id: str, current_user: dict = Depends(verify_user)):
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own milestones")
     """Get milestones achieved by a specific user"""
     try:
         result = supabase.table('user_milestones').select('''
@@ -350,7 +361,9 @@ async def get_badge_leaderboard(limit: int = 10):
 
 
 @router.get("/user/{user_id}/progress")
-async def get_badge_progress(user_id: str):
+async def get_badge_progress(user_id: str, current_user: dict = Depends(verify_user)):
+    if user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badge progress")
     """
     Get user's progress toward unearned badges.
     Shows current stats vs. requirements.

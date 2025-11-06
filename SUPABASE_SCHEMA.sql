@@ -36,13 +36,13 @@ CREATE POLICY "Public profiles are viewable by everyone"
 CREATE POLICY "Users can insert own profile"
   ON public.users
   FOR INSERT
-  WITH CHECK (true);  -- Allow profile creation
+  WITH CHECK (auth.uid() = user_id);  -- Allow profile creation for authenticated user
 
 CREATE POLICY "Users can update own profile"
   ON public.users
   FOR UPDATE
-  USING (true)  -- For now, allow all updates (service role)
-  WITH CHECK (true);
+  USING (auth.uid() = user_id)  -- Allow authenticated user to update their own profile
+  WITH CHECK (auth.uid() = user_id);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_username ON public.users(username);
@@ -72,20 +72,20 @@ COMMENT ON COLUMN public.progress.quizzes_completed IS 'Number of quizzes comple
 ALTER TABLE public.progress ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "Users can view all progress"
+CREATE POLICY "Users can view own progress"
   ON public.progress
   FOR SELECT
-  USING (true);
+  USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert progress"
+CREATE POLICY "Users can insert own progress"
   ON public.progress
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update progress"
+CREATE POLICY "Users can update own progress"
   ON public.progress
   FOR UPDATE
-  USING (true);
+  USING (auth.uid() = user_id);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_progress_user_id ON public.progress(user_id);
@@ -113,15 +113,15 @@ COMMENT ON COLUMN public.xp_logs.metadata IS 'Additional data like quiz score, d
 ALTER TABLE public.xp_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "Users can view all xp logs"
+CREATE POLICY "Users can view own xp logs"
   ON public.xp_logs
   FOR SELECT
-  USING (true);
+  USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert xp logs"
+CREATE POLICY "Users can insert own xp logs"
   ON public.xp_logs
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = user_id);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_xp_logs_user_id ON public.xp_logs(user_id);
@@ -154,15 +154,15 @@ COMMENT ON COLUMN public.quiz_results.xp_earned IS 'XP points earned from this q
 ALTER TABLE public.quiz_results ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "Users can view all quiz results"
+CREATE POLICY "Users can view own quiz results"
   ON public.quiz_results
   FOR SELECT
-  USING (true);
+  USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert quiz results"
+CREATE POLICY "Users can insert own quiz results"
   ON public.quiz_results
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = user_id);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_quiz_results_user_id ON public.quiz_results(user_id);

@@ -28,11 +28,15 @@ router = APIRouter(
 
 class GenerateNotesRequest(BaseModel):
     topic: str
+    user_id: str = Field(None, description="User ID for tracking")
+    use_cache: bool = Field(True, description="Use cached notes if available")
     
     class Config:
         json_schema_extra = {
             "example": {
-                "topic": "Python Data Structures"
+                "topic": "Python Data Structures",
+                "user_id": "demo_user",
+                "use_cache": True
             }
         }
 
@@ -41,6 +45,8 @@ class NotesResponse(BaseModel):
     topic: str
     summary: str
     key_points: List[str]
+    examples: Optional[List[str]] = []
+    tips: Optional[List[str]] = []
     
     class Config:
         json_schema_extra = {
@@ -53,6 +59,14 @@ class NotesResponse(BaseModel):
                     "Dictionaries store key-value pairs for fast lookups",
                     "Sets are unordered collections of unique elements",
                     "Each data structure has specific use cases and performance characteristics"
+                ],
+                "examples": [
+                    "list_example = [1, 2, 3, 'four']",
+                    "dict_example = {'name': 'John', 'age': 30}"
+                ],
+                "tips": [
+                    "Use lists when order matters",
+                    "Use dictionaries for key-value lookups"
                 ]
             }
         }
@@ -312,7 +326,8 @@ async def create_study_session(
 
 @router.post("/retry", response_model=StudyPackageResponse)
 async def retry_topic(
-    request: CompleteStudyRequest
+    request: CompleteStudyRequest,
+    current_user: dict = Depends(verify_user)
 ):
     """
     Retry a topic - regenerate notes and quiz for review.
@@ -342,7 +357,7 @@ async def retry_topic(
             )
         
         # TODO: Replace with actual user authentication
-        user_id = 'demo_user'
+        user_id = current_user['id']
         topic = request.topic.strip()
         
         # Generate new study package

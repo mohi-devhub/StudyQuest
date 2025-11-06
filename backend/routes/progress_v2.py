@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from datetime import datetime
+from utils.auth import verify_user
 from utils.error_handlers import (
     validate_topic,
     validate_difficulty,
@@ -145,7 +146,10 @@ async def get_progress_v2_info():
 
 
 @router.post("/submit-quiz")
-async def submit_quiz(submission: QuizSubmission):
+async def submit_quiz(
+    submission: QuizSubmission,
+    current_user: dict = Depends(verify_user)
+):
     """
     Submit a quiz and automatically update:
     - quiz_scores table
@@ -158,9 +162,14 @@ async def submit_quiz(submission: QuizSubmission):
     - Standardized error responses
     - Graceful database error handling
     
+    Requires authentication. Uses authenticated user_id instead of submission.user_id.
+    
     Returns the quiz result and XP earned.
     """
     try:
+        # Use authenticated user ID (ignore submission.user_id)
+        user_id = current_user.id
+        
         # Validate inputs
         validated_topic = validate_topic(submission.topic, max_length=50)
         validated_difficulty = validate_difficulty(submission.difficulty)
@@ -183,7 +192,7 @@ async def submit_quiz(submission: QuizSubmission):
         # Get current user XP and level
         try:
             user_result = supabase.table('users').select('total_xp, level').eq(
-                'user_id', submission.user_id
+                'user_id', user_id
             ).single().execute()
             
             if not user_result.data:
@@ -191,7 +200,7 @@ async def submit_quiz(submission: QuizSubmission):
                     status_code=404,
                     detail={
                         "status": "error",
-                        "message": f"User {submission.user_id} not found",
+                        "message": f"User {user_id} not found",
                         "code": "NOT_FOUND"
                     }
                 )
@@ -206,7 +215,7 @@ async def submit_quiz(submission: QuizSubmission):
         # Insert quiz score (triggers will auto-update user_topics)
         try:
             quiz_result = supabase.table('quiz_scores').insert({
-                'user_id': submission.user_id,
+                'user_id': user_id,
                 'topic': validated_topic,
                 'difficulty': validated_difficulty,
                 'correct': submission.correct,
@@ -225,7 +234,7 @@ async def submit_quiz(submission: QuizSubmission):
         # Insert XP history
         try:
             xp_history_result = supabase.table('xp_history').insert({
-                'user_id': submission.user_id,
+                'user_id': user_id,
                 'xp_change': xp_earned,
                 'reason': 'quiz_complete',
                 'topic': validated_topic,
@@ -250,7 +259,7 @@ async def submit_quiz(submission: QuizSubmission):
             user_update = supabase.table('users').update({
                 'total_xp': new_xp,
                 'level': new_level
-            }).eq('user_id', submission.user_id).execute()
+            }).eq('user_id', user_id).execute()
         except Exception as e:
             print(f"User update error: {str(e)}")
             raise handle_database_error("user XP update")
@@ -258,7 +267,7 @@ async def submit_quiz(submission: QuizSubmission):
         # Also insert into xp_logs for backward compatibility
         try:
             xp_log = supabase.table('xp_logs').insert({
-                'user_id': submission.user_id,
+                'user_id': user_id,
                 'xp_amount': xp_earned,
                 'source': 'quiz_complete',
                 'topic': validated_topic,
