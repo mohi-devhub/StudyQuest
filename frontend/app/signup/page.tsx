@@ -46,7 +46,7 @@ export default function SignupPage() {
       setSuccess(true)
       // Redirect to dashboard after successful signup
       setTimeout(() => {
-        router.push('/dashboard')
+        router.replace('/')
       }, 2000)
     } catch (err: any) {
       setError(err.message || 'Failed to create account')

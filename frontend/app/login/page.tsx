@@ -21,7 +21,9 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password)
-      router.push('/dashboard')
+      // Use replace instead of push to avoid back button issues
+      // Redirect to root (dashboard) after successful login
+      router.replace('/')
     } catch (err: any) {
       setError(err.message || 'Failed to sign in')
     } finally {
