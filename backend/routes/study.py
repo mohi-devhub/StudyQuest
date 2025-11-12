@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from pydantic import BaseModel, Field
 from agents.research_agent import generate_notes, generate_notes_with_fallback
 from agents.coach_agent import study_topic, study_multiple_topics
@@ -19,6 +19,12 @@ from utils.error_handlers import (
 from utils.cache_utils import get_cached_content, set_cached_content
 from typing import List, Dict, Optional
 import asyncio
+
+# Import rate limiter
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/study",
@@ -178,7 +184,9 @@ async def get_study_info():
 
 
 @router.post("/", response_model=StudyPackageResponse)
+@limiter.limit("5/minute")
 async def create_study_session(
+    http_request: Request,
     request: CompleteStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
@@ -325,7 +333,9 @@ async def create_study_session(
 
 
 @router.post("/retry", response_model=StudyPackageResponse)
+@limiter.limit("5/minute")
 async def retry_topic(
+    http_request: Request,
     request: CompleteStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
@@ -347,7 +357,7 @@ async def retry_topic(
     
     Response: Same as /study endpoint, plus retry metadata
     
-    Note: Currently uses demo_user for testing. Add authentication in production.
+    Requires authentication via JWT token.
     """
     try:
         if not request.topic or not request.topic.strip():
@@ -356,8 +366,8 @@ async def retry_topic(
                 detail="Topic cannot be empty"
             )
         
-        # TODO: Replace with actual user authentication
-        user_id = current_user['id']
+        # Get authenticated user ID
+        user_id = current_user.id
         topic = request.topic.strip()
         
         # Generate new study package
@@ -418,7 +428,9 @@ async def retry_topic(
 
 
 @router.post("/generate-notes", response_model=NotesResponse)
+@limiter.limit("5/minute")
 async def create_study_notes(
+    http_request: Request,
     request: GenerateNotesRequest,
     current_user: dict = Depends(verify_user)
 ):
@@ -456,7 +468,9 @@ async def create_study_notes(
 
 
 @router.post("/complete", response_model=StudyPackageResponse)
+@limiter.limit("5/minute")
 async def complete_study_workflow(
+    http_request: Request,
     request: CompleteStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
@@ -500,7 +514,9 @@ async def complete_study_workflow(
 
 
 @router.post("/batch", response_model=List[StudyPackageResponse])
+@limiter.limit("5/minute")
 async def batch_study_workflow(
+    http_request: Request,
     request: BatchStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
@@ -550,7 +566,9 @@ async def batch_study_workflow(
 
 
 @router.post("/adaptive-quiz")
+@limiter.limit("5/minute")
 async def generate_adaptive_quiz(
+    http_request: Request,
     request: AdaptiveQuizRequest,
     user_id: str = Depends(get_current_user_id)
 ):
@@ -654,7 +672,9 @@ async def generate_adaptive_quiz(
 
 
 @router.get("/recommendations")
+@limiter.limit("5/minute")
 async def get_study_recommendations(
+    http_request: Request,
     user_id: str = Depends(get_current_user_id),
     max_recommendations: int = 5,
     include_ai_insights: bool = True

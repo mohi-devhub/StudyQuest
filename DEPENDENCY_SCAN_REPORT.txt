@@ -1,0 +1,25 @@
+================================================================================
+DEPENDENCY VULNERABILITY SCAN REPORT
+================================================================================
+
+Total vulnerabilities found: 1
+
+
+CRITICAL SEVERITY (1 vulnerabilities)
+--------------------------------------------------------------------------------
+
+  Package: next (npm)
+  CVE: N/A
+  Description: Authorization Bypass in Next.js Middleware
+  Vulnerable Versions: 0.9.9 - 14.2.31
+  Patched Versions: 14.2.33
+
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+1. Update packages with critical/high vulnerabilities immediately
+2. Review and update moderate/medium vulnerabilities
+3. Set up automated dependency scanning in CI/CD
+4. Regularly run security audits
+================================================================================

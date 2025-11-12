@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from pydantic import BaseModel, Field
 from agents.quiz_agent import generate_quiz, generate_quiz_with_fallback, generate_quiz_from_topic
 from utils.auth import verify_user
@@ -14,6 +14,12 @@ from utils.cache_utils import get_cached_content, set_cached_content
 from typing import List, Optional
 import asyncio
 import time
+
+# Import rate limiter
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/quiz",
@@ -144,7 +150,9 @@ class SimpleQuizResponse(BaseModel):
 
 
 @router.post("/", response_model=SimpleQuizResponse)
+@limiter.limit("5/minute")
 async def generate_simple_quiz(
+    http_request: Request,
     request: SimpleQuizRequest,
     current_user: dict = Depends(verify_user)
 ):
@@ -281,7 +289,9 @@ async def generate_simple_quiz(
 
 
 @router.post("/generate", response_model=QuizResponse)
+@limiter.limit("5/minute")
 async def generate_quiz_from_notes(
+    http_request: Request,
     request: GenerateQuizFromNotesRequest,
     current_user: dict = Depends(verify_user)
 ):
@@ -367,7 +377,9 @@ async def generate_quiz_from_notes(
 
 
 @router.post("/generate-from-topic", response_model=QuizResponse)
+@limiter.limit("5/minute")
 async def generate_quiz_from_structured_notes(
+    http_request: Request,
     request: GenerateQuizFromTopicRequest,
     current_user: dict = Depends(verify_user)
 ):
