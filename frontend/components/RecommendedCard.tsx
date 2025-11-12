@@ -1,8 +1,4 @@
-'use client'
-
-import { motion } from 'framer-motion'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { QuizDifficulty } from '@/types/enums'
 
 interface Recommendation {
   topic: string
@@ -39,13 +35,13 @@ export default function RecommendedCard({ recommendation }: RecommendedCardProps
   }
 
   const getDifficultyLabel = (difficulty: string) => {
-    const labels: { [key: string]: string } = {
-      easy: '█░░░',
-      medium: '██░░',
-      hard: '███░',
-      expert: '████'
+    const labels: { [key in QuizDifficulty]: string } = {
+      [QuizDifficulty.EASY]: '█░░░',
+      [QuizDifficulty.MEDIUM]: '██░░',
+      [QuizDifficulty.HARD]: '███░',
+      [QuizDifficulty.EXPERT]: '████',
     }
-    return labels[difficulty.toLowerCase()] || '░░░░'
+    return labels[difficulty.toLowerCase() as QuizDifficulty] || '░░░░'
   }
 
   return (

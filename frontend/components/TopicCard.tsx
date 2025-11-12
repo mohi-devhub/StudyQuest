@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+import { formatRelativeTime, getScoreColor } from '@/utils/formatting'
+import { QuizDifficulty, SCORE_THRESHOLDS } from '@/types/enums'
 
 interface TopicData {
   topic: string
@@ -18,22 +20,14 @@ interface TopicCardProps {
 export default function TopicCard({ topic, delay = 0 }: TopicCardProps) {
   const router = useRouter()
   
-  const daysSinceAttempt = Math.floor(
-    (Date.now() - new Date(topic.last_attempt).getTime()) / (1000 * 60 * 60 * 24)
-  )
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-terminal-white'
-    if (score >= 70) return 'text-terminal-gray'
-    return 'text-terminal-gray opacity-70'
-  }
+  const relativeTime = formatRelativeTime(topic.last_attempt)
 
   const handleCardClick = () => {
     // Determine difficulty based on current score
-    let difficulty = 'medium'
-    if (topic.avg_score >= 85) difficulty = 'hard'
-    else if (topic.avg_score >= 95) difficulty = 'expert'
-    else if (topic.avg_score < 70) difficulty = 'easy'
+    let difficulty = QuizDifficulty.MEDIUM
+    if (topic.avg_score >= SCORE_THRESHOLDS.MASTERED) difficulty = QuizDifficulty.EXPERT
+    else if (topic.avg_score >= 85) difficulty = QuizDifficulty.HARD
+    else if (topic.avg_score < SCORE_THRESHOLDS.PASSING) difficulty = QuizDifficulty.EASY
     
     router.push(`/quiz?topic=${encodeURIComponent(topic.topic)}&difficulty=${difficulty}`)
   }
@@ -54,7 +48,7 @@ export default function TopicCard({ topic, delay = 0 }: TopicCardProps) {
             {topic.topic}
           </h3>
           <div className="text-terminal-gray text-xs mt-1">
-            {daysSinceAttempt === 0 ? 'Today' : `${daysSinceAttempt}d ago`} · {topic.total_attempts} attempts
+            {relativeTime} · {topic.total_attempts} attempts
           </div>
         </div>
       </div>

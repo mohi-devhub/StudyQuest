@@ -12,6 +12,9 @@ import LoadingScreen from '@/components/LoadingScreen'
 import { useToast } from '@/components/Toast'
 import { useRealtimeXP } from '@/lib/useRealtimeXP'
 import { useAuth } from '@/lib/useAuth'
+import { useLoadingState } from '@/hooks/useLoadingState'
+import { useErrorState } from '@/hooks/useErrorState'
+import { fetchDashboardData } from '@/utils/api'
 import CelebrationModal from '@/components/CelebrationModal'
 
 interface UserProgress {
@@ -56,8 +59,8 @@ export default function Dashboard() {
   const router = useRouter()
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [recommendations, setRecommendations] = useState<RecommendationResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { isLoading, withLoading } = useLoadingState(true)
+  const { error, withErrorHandling, setError } = useErrorState(null)
   const [showXPSummary, setShowXPSummary] = useState(false)
   const [xpSummaryData, setXPSummaryData] = useState<any>(null)
   
@@ -171,9 +174,45 @@ export default function Dashboard() {
     onBadgeUnlock: handleBadgeUnlock,
   })
 
+  const loadDashboard = useCallback(async () => {
+    if (!userId) return
+
+    await withLoading(async () => {
+      const data = await withErrorHandling(async () => 
+        fetchDashboardData(userId)
+      )
+
+      if (data) {
+        setProgress({
+          user_id: userId,
+          total_xp: data.progress.total_xp || 0,
+          level: data.progress.level || 1,
+          topics: data.progress.topics || [],
+        })
+        setRecommendations(data.recommendations)
+      } else {
+        // Set empty state on failure
+        setProgress({
+          user_id: userId,
+          total_xp: 0,
+          level: 1,
+          topics: [],
+        })
+        setRecommendations({
+          recommendations: [],
+          overall_stats: {
+            total_attempts: 0,
+            avg_score: 0,
+            topics_studied: 0,
+          },
+        })
+      }
+    })
+  }, [userId, withLoading, withErrorHandling])
+
   useEffect(() => {
     if (userId) {
-      fetchDashboardData()
+      loadDashboard()
       
       // Check if this is a retry session
       const isRetry = sessionStorage.getItem('isRetry')
@@ -195,58 +234,9 @@ export default function Dashboard() {
         }
       }
     }
-  }, [userId])
+  }, [userId, loadDashboard])
 
-  const fetchDashboardData = async () => {
-    if (!userId) return
-    
-    try {
-      setLoading(true)
-      setError(null)
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
-      // Fetch user progress from API
-      const progressRes = await fetch(`${apiUrl}/progress/v2/${userId}`)
-      if (!progressRes.ok) throw new Error('Failed to fetch progress')
-      const progressData = await progressRes.json()
-      
-      // Fetch study recommendations
-      const recRes = await fetch(`${apiUrl}/study/recommendations?user_id=${userId}`)
-      if (!recRes.ok) throw new Error('Failed to fetch recommendations')
-      const recData = await recRes.json()
-
-      setProgress({
-        user_id: userId,
-        total_xp: progressData.total_xp || 0,
-        level: progressData.level || 1,
-        topics: progressData.topics || []
-      })
-      
-      setRecommendations(recData)
-    } catch (err) {
-      console.error('Dashboard error:', err)
-      // Set empty state if API fails
-      setProgress({
-        user_id: userId,
-        total_xp: 0,
-        level: 1,
-        topics: []
-      })
-      setRecommendations({
-        recommendations: [],
-        overall_stats: {
-          total_attempts: 0,
-          avg_score: 0,
-          topics_studied: 0
-        }
-      })
-    } finally {
-      setTimeout(() => setLoading(false), 800) // Smooth transition
-    }
-  }
-
-  if (authLoading || loading) {
+  if (authLoading || isLoading) {
     return <LoadingScreen />
   }
 
@@ -265,7 +255,7 @@ export default function Dashboard() {
           <h2 className="text-2xl mb-4">// ERROR</h2>
           <p className="text-terminal-gray mb-6">{error}</p>
           <button
-            onClick={fetchDashboardData}
+            onClick={loadDashboard}
             className="w-full bg-terminal-black text-terminal-white border border-terminal-white px-6 py-3 hover:bg-terminal-white hover:text-terminal-black transition-colors"
           >
             RETRY

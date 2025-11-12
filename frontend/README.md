@@ -276,6 +276,12 @@ npm start
 npm run lint
 ```
 
+### Unit Tests
+
+```bash
+npm test
+```
+
 ## 🐛 Troubleshooting
 
 ### Port Already in Use

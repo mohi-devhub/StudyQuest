@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import ClientOnly from '@/components/ClientOnly'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -80,15 +81,17 @@ export default function LoginPage() {
         >
           <div className="text-sm text-gray-500 mb-6">// LOGIN</div>
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="border border-red-500 bg-red-950 bg-opacity-20 p-3 mb-6 text-sm"
-            >
-              <span className="text-red-500">ERROR:</span> {error}
-            </motion.div>
-          )}
+          <ClientOnly>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="border border-red-500 bg-red-950 bg-opacity-20 p-3 mb-6 text-sm"
+              >
+                <span className="text-red-500">ERROR:</span> {error}
+              </motion.div>
+            )}
+          </ClientOnly>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>

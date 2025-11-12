@@ -60,7 +60,13 @@ export default function XPProgressBar({ currentXP, level }: XPProgressBarProps) 
         </div>
         
         {/* Progress bar background */}
-        <div className="h-8 border border-terminal-white relative overflow-hidden">
+        <div
+          className="h-8 border border-terminal-white relative overflow-hidden"
+          role="progressbar"
+          aria-valuenow={xpProgress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           {/* Progress fill with smooth animation */}
           <motion.div
             style={{ width: springProgress.get() === 0 ? `${xpProgress}%` : undefined }}

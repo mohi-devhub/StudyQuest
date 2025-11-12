@@ -29,6 +29,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
     "http://localhost:3000",
     "http://localhost:3001",
+    "https://studyquest.vercel.app",
+    "https://studyquest-git-main-mohi-devhubs-projects.vercel.app",
 ]
 
 app.add_middleware(

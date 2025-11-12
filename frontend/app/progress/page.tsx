@@ -6,6 +6,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import CoachFeedbackPanel from '@/components/CoachFeedbackPanel'
+import { useLoadingState } from '@/hooks/useLoadingState'
+import { generateXPBar, calculateXPToNextLevel } from '@/utils/xp'
+import { getStatusSymbol } from '@/utils/formatting'
+import { getApi } from '@/utils/api'
 
 interface TopicProgress {
   topic: string
@@ -36,7 +40,7 @@ export default function ProgressDashboard() {
   const [userData, setUserData] = useState<UserData | null>(null)
   const [topics, setTopics] = useState<TopicProgress[]>([])
   const [stats, setStats] = useState<UserStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { isLoading, setLoading } = useLoadingState(true)
   const [retryingTopic, setRetryingTopic] = useState<string | null>(null)
   const router = useRouter()
 
@@ -103,32 +107,6 @@ export default function ProgressDashboard() {
     }
   }
 
-  const generateXPBar = (currentXP: number) => {
-    const level = Math.floor(currentXP / 500) + 1
-    const xpInCurrentLevel = currentXP % 500
-    const progress = (xpInCurrentLevel / 500) * 20 // 20 blocks
-    const filled = Math.floor(progress)
-    const empty = 20 - filled
-
-    return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']'
-  }
-
-  const getStatusSymbol = (status: string) => {
-    switch (status) {
-      case 'mastered': return '★★★'
-      case 'completed': return '★★☆'
-      case 'in_progress': return '★☆☆'
-      default: return '☆☆☆'
-    }
-  }
-
-  const formatPercentage = (num: number) => {
-    return num.toFixed(1).padStart(5, ' ')
-  }
-
-  const padRight = (str: string, length: number) => {
-    return str.padEnd(length, ' ')
-  }
 
   const handleRetryTopic = async (topic: string) => {
     try {
@@ -168,7 +146,7 @@ export default function ProgressDashboard() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center font-mono">
         <motion.div
@@ -183,7 +161,7 @@ export default function ProgressDashboard() {
     )
   }
 
-  const xpToNextLevel = userData ? 500 - (userData.total_xp % 500) : 500
+  const xpToNextLevel = userData ? calculateXPToNextLevel(userData.total_xp) : 500
 
   return (
     <div className="min-h-screen bg-black text-white p-6 md:p-8 font-mono">

@@ -95,7 +95,8 @@ export default function QuizPage() {
       }
 
       // Otherwise generate new quiz from the notes
-      const response = await fetch('http://localhost:8000/quiz/generate-from-topic', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${apiUrl}/quiz/generate-from-topic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +142,8 @@ export default function QuizPage() {
       formData.append('file', selectedFile)
       formData.append('num_questions', '5')
 
-      const response = await fetch('http://localhost:8000/quiz/generate-from-pdf', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${apiUrl}/quiz/generate-from-pdf`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${user?.id}`
@@ -175,7 +177,8 @@ export default function QuizPage() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch('http://localhost:8000/quiz', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${apiUrl}/quiz`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
