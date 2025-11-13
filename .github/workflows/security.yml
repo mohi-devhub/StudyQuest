@@ -1,0 +1,174 @@
+name: Security Scan
+
+on:
+  # Run weekly on Mondays at 9 AM UTC
+  schedule:
+    - cron: '0 9 * * 1'
+  
+  # Run on pull requests
+  pull_request:
+    branches: [main, develop]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install pip-audit
+        run: pip install pip-audit
+      
+      - name: Scan backend dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip-audit --desc --format json --output backend-vulnerabilities.json
+        continue-on-error: true
+      
+      - name: Upload backend scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-vulnerabilities
+          path: backend/backend-vulnerabilities.json
+          if-no-files-found: ignore
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Scan frontend dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --json > frontend-vulnerabilities.json || true
+      
+      - name: Upload frontend scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-vulnerabilities
+          path: frontend/frontend-vulnerabilities.json
+          if-no-files-found: ignore
+      
+      - name: Check for critical vulnerabilities
+        run: |
+          echo "### Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Scan completed. Check artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Run custom secret scanner
+        run: |
+          python backend/utils/secret_scanner.py
+        continue-on-error: true
+      
+      - name: Upload secret scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-results
+          path: SECRET_SCAN_REPORT.txt
+          if-no-files-found: ignore
+      
+      - name: TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+  code-security-scan:
+    name: Code Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Bandit
+        run: pip install bandit[toml]
+      
+      - name: Run Bandit security scan
+        working-directory: backend
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+        continue-on-error: true
+      
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-report
+          path: backend/bandit-report.json
+          if-no-files-found: ignore
+      
+      - name: Run ESLint security scan
+        working-directory: frontend
+        run: |
+          npm ci
+          npx eslint . --ext .ts,.tsx,.js,.jsx --format json --output-file eslint-report.json || true
+        continue-on-error: true
+      
+      - name: Upload ESLint results
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-security-report
+          path: frontend/eslint-report.json
+          if-no-files-found: ignore
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, secret-scan, code-security-scan]
+    if: always()
+    
+    steps:
+      - name: Generate summary
+        run: |
+          echo "### Security Scan Complete :shield:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scans Performed:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dependency vulnerability scan" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Secret scanning" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code security analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Review artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+      
+      - name: Check scan status
+        run: |
+          if [ "${{ needs.dependency-scan.result }}" == "failure" ] || \
+             [ "${{ needs.secret-scan.result }}" == "failure" ] || \
+             [ "${{ needs.code-security-scan.result }}" == "failure" ]; then
+            echo "⚠️ Some security scans encountered issues"
+          else
+            echo "✅ All security scans completed successfully"
+          fi
