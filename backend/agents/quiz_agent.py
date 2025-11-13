@@ -3,8 +3,11 @@ import os
 import json
 from typing import Dict, List
 from dotenv import load_dotenv
+from utils.logger import get_logger
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 def sanitize_input(input_text: str):
     """
@@ -237,12 +240,12 @@ async def generate_quiz_with_fallback(notes: str, num_questions: int = 5) -> dic
     
     for model in models:
         try:
-            print(f"Trying model: {model}")
+            logger.info("Attempting quiz generation with model", model=model, num_questions=num_questions)
             result = await generate_quiz(notes, num_questions, model)
-            print(f"✅ Model {model} succeeded!")
+            logger.info("Quiz generation succeeded", model=model, questions_generated=len(result))
             return result
         except Exception as e:
-            print(f"Model {model} failed: {str(e)}")
+            logger.warning("Model failed for quiz generation", model=model, error=str(e))
             last_error = e
             continue
     

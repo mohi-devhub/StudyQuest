@@ -5,6 +5,9 @@ import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('StudyPage')
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -84,7 +87,7 @@ export default function StudyPage() {
               quiz_questions: data.quiz || []
             })
           } catch (saveErr) {
-            console.error('Failed to save study session:', saveErr)
+            logger.warn('Failed to save study session', { userId, topic, error: String(saveErr) })
             // Don't show error to user, this is optional
           }
         }
@@ -93,7 +96,7 @@ export default function StudyPage() {
       }
     } catch (err) {
       setError('Network error. Please check if backend is running.')
-      console.error('Study generation error:', err)
+      logger.error('Study generation error', { userId, topic, error: String(err) })
     } finally {
       setLoading(false)
     }

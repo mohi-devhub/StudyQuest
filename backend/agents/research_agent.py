@@ -3,8 +3,11 @@ import os
 import json
 from typing import Dict, List
 from dotenv import load_dotenv
+from utils.logger import get_logger
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 def sanitize_input(input_text: str):
     """
@@ -128,12 +131,12 @@ async def generate_notes_with_fallback(topic: str) -> dict:
     
     for model in models:
         try:
-            print(f"Trying model: {model}")
+            logger.info("Attempting note generation with model", model=model, topic=topic)
             result = await generate_notes(topic, model)
-            print(f"✅ Model {model} succeeded!")
+            logger.info("Note generation succeeded", model=model, topic=topic, key_points_count=len(result.get('key_points', [])))
             return result
         except Exception as e:
-            print(f"Model {model} failed: {str(e)}")
+            logger.warning("Model failed for note generation", model=model, topic=topic, error=str(e))
             last_error = e
             continue
     

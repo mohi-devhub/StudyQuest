@@ -6,6 +6,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('ProfilePage')
 
 interface UserProfile {
   username: string
@@ -53,7 +56,7 @@ export default function ProfilePage() {
         created_at: userData?.created_at || new Date().toISOString()
       })
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      logger.error('Error fetching profile', { userId, error: String(error) })
     } finally {
       setLoading(false)
     }
@@ -65,7 +68,7 @@ export default function ProfilePage() {
       await signOut()
       router.push('/login')
     } catch (error) {
-      console.error('Logout error:', error)
+      logger.error('Logout error', { userId, error: String(error) })
       setLoggingOut(false)
     }
   }

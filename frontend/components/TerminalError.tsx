@@ -2,6 +2,9 @@
 
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('TerminalError')
 
 interface TerminalErrorProps {
   error: string
@@ -20,12 +23,8 @@ export default function TerminalError({
   const [timestamp] = useState(new Date().toISOString())
 
   useEffect(() => {
-    // Log to console in terminal style
-    console.error(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-    console.error(`ERROR: ${error}`)
-    if (details) console.error(`DETAILS: ${details}`)
-    console.error(`TIMESTAMP: ${timestamp}`)
-    console.error(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`)
+    // Log error with structured logging
+    logger.error('Terminal error displayed', { error, details, timestamp })
   }, [error, details, timestamp])
 
   if (dismissed) return null

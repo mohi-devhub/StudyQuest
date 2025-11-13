@@ -8,8 +8,11 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from config.supabase_client import supabase
+from utils.logger import get_logger
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -92,7 +95,7 @@ def analyze_user_performance(user_id: str) -> Dict:
             }
         }
     except Exception as e:
-        print(f"Error analyzing performance: {e}")
+        logger.error("Error analyzing user performance", user_id=user_id, error=str(e))
         return {
             "user_stats": {},
             "weak_topics": [],
@@ -168,7 +171,7 @@ Suggest 3-5 new topics to study:"""
         return cleaned[:5]  # Max 5 recommendations
         
     except Exception as e:
-        print(f"Error generating recommendations: {e}")
+        logger.error("Error generating topic recommendations", error=str(e), weak_topics_count=len(weak_topics))
         return ["Python Basics", "Data Structures", "Algorithms", "Web Development"]
 
 
@@ -212,7 +215,7 @@ Generate 1-2 motivational messages (one per line):"""
         return messages_list[:2]  # Max 2 messages
         
     except Exception as e:
-        print(f"Error generating motivation: {e}")
+        logger.error("Error generating motivational message", avg_score=avg_score, level=level, error=str(e))
         # Fallback messages
         if avg_score >= 80:
             return ["[✓] Outstanding work! Keep this momentum going!"]

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('CoachFeedbackPanel')
 interface CoachFeedback {
   success: boolean
   user_id: string
@@ -53,7 +56,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
       setFeedback(data)
     } catch (err: any) {
       setError(err.message)
-      console.error('Coach feedback error:', err)
+      logger.error('Coach feedback error', { userId, error: err.message })
     } finally {
       setLoading(false)
     }

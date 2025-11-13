@@ -9,6 +9,9 @@ import asyncio
 from typing import Dict, List, Optional
 import os
 from dotenv import load_dotenv
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 def sanitize_input(input_text: str):
     """
@@ -36,7 +39,7 @@ try:
     CREWAI_AVAILABLE = True
 except ImportError:
     CREWAI_AVAILABLE = False
-    print("⚠️  CrewAI not available. Using simplified workflow coordination.")
+    logger.warning("CrewAI not available, using simplified workflow coordination")
 
 from .research_agent import generate_notes_with_fallback, generate_notes
 from .quiz_agent import generate_quiz_with_fallback, generate_quiz
@@ -130,14 +133,13 @@ async def study_topic(topic: str, num_questions: int = 5) -> Dict:
         dict: Complete study package with notes and quiz
     """
     sanitize_input(topic)
-    print(f"\n🎓 Starting study workflow for: {topic}")
-    print("="*70)
+    logger.info("Starting study workflow", topic=topic, num_questions=num_questions)
     
     # Step 1: Generate study notes
-    print("\n📚 Step 1: Generating study notes...")
+    logger.debug("Generating study notes", topic=topic)
     notes = await generate_notes_with_fallback(topic)
     
-    print(f"✅ Generated notes with {len(notes['key_points'])} key points")
+    logger.info("Study notes generated", topic=topic, key_points_count=len(notes['key_points']))
     
     # Step 2: Format notes for quiz generation
     formatted_notes = f"""Topic: {notes['topic']}
@@ -150,14 +152,13 @@ Key Points:
         formatted_notes += f"{i}. {point}\n"
     
     # Step 3: Generate quiz questions
-    print(f"\n📝 Step 2: Generating {num_questions} quiz questions...")
+    logger.debug("Generating quiz questions", topic=topic, num_questions=num_questions)
     quiz = await generate_quiz_with_fallback(formatted_notes, num_questions)
     
-    print(f"✅ Generated {len(quiz)} quiz questions")
+    logger.info("Quiz questions generated", topic=topic, questions_count=len(quiz))
     
     # Return complete study package
-    print("\n✅ Study workflow completed successfully!")
-    print("="*70)
+    logger.info("Study workflow completed successfully", topic=topic, key_points=len(notes['key_points']), questions=len(quiz))
     
     return {
         "topic": notes['topic'],
@@ -185,11 +186,10 @@ async def study_topic_with_crewai(topic: str, num_questions: int = 5) -> Dict:
         dict: Complete study package with notes and quiz
     """
     if not CREWAI_AVAILABLE:
-        print("⚠️  CrewAI not available. Falling back to simplified workflow.")
+        logger.warning("CrewAI not available, falling back to simplified workflow", topic=topic)
         return await study_topic(topic, num_questions)
     
-    print(f"\n🎓 Starting CrewAI study workflow for: {topic}")
-    print("="*70)
+    logger.info("Starting CrewAI study workflow", topic=topic, num_questions=num_questions)
     
     # Get LLM for agents
     llm = get_openrouter_llm()
@@ -291,11 +291,10 @@ async def study_topic_with_crewai(topic: str, num_questions: int = 5) -> Dict:
     )
     
     # Execute the crew
-    print("\n🚀 Executing CrewAI workflow...")
+    logger.debug("Executing CrewAI workflow", topic=topic)
     result = crew.kickoff()
     
-    print("\n✅ CrewAI workflow completed!")
-    print("="*70)
+    logger.info("CrewAI workflow completed", topic=topic)
     
     # For now, fall back to direct implementation to get structured data
     # CrewAI result is text-based, so we'll run our agents directly
@@ -335,8 +334,7 @@ async def study_multiple_topics(topics: List[str], num_questions: int = 5) -> Li
     Returns:
         list: List of study packages, one per topic
     """
-    print(f"\n🎓 Processing {len(topics)} topics...")
-    print("="*70)
+    logger.info("Processing multiple topics", topics_count=len(topics), num_questions=num_questions)
     
     # Process all topics concurrently
     tasks = [study_topic(topic, num_questions) for topic in topics]
@@ -346,12 +344,11 @@ async def study_multiple_topics(topics: List[str], num_questions: int = 5) -> Li
     successful_results = []
     for i, result in enumerate(results):
         if isinstance(result, Exception):
-            print(f"❌ Error processing '{topics[i]}': {str(result)}")
+            logger.error("Error processing topic", topic=topics[i], error=str(result))
         else:
             successful_results.append(result)
     
-    print(f"\n✅ Successfully processed {len(successful_results)}/{len(topics)} topics")
-    print("="*70)
+    logger.info("Multiple topics processing completed", successful=len(successful_results), total=len(topics))
     
     return successful_results
 

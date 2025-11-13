@@ -10,6 +10,9 @@ import { useLoadingState } from '@/hooks/useLoadingState'
 import { generateXPBar, calculateXPToNextLevel } from '@/utils/xp'
 import { getStatusSymbol } from '@/utils/formatting'
 import { getApi } from '@/utils/api'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('ProgressPage')
 
 interface TopicProgress {
   topic: string
@@ -101,7 +104,7 @@ export default function ProgressDashboard() {
       setTopics(topics)
       setStats(stats)
     } catch (error) {
-      console.error('Error fetching progress:', error)
+      logger.error('Error fetching progress', { userId, error: String(error) })
     } finally {
       setLoading(false)
     }
@@ -139,7 +142,7 @@ export default function ProgressDashboard() {
       router.push('/')
       
     } catch (error) {
-      console.error('Error retrying topic:', error)
+      logger.error('Error retrying topic', { userId, topic, error: String(error) })
       alert('Failed to retry topic. Please try again.')
     } finally {
       setRetryingTopic(null)

@@ -16,6 +16,9 @@ import { useLoadingState } from '@/hooks/useLoadingState'
 import { useErrorState } from '@/hooks/useErrorState'
 import { fetchDashboardData } from '@/utils/api'
 import CelebrationModal from '@/components/CelebrationModal'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('HomePage')
 
 interface UserProgress {
   user_id: string
@@ -90,7 +93,7 @@ export default function Dashboard() {
   
   // Stable callbacks for real-time events
   const handleXPGain = useCallback((xp: number, source: string, topic?: string) => {
-    console.log(`XP Gained: +${xp} from ${source} on ${topic || 'unknown'}`)
+    logger.info('XP gained', { xp, source, topic: topic || 'unknown', userId })
     showToast(`${topic || 'Study'} completed!`, xp, 'xp')
     
     // Update progress with new XP
@@ -113,7 +116,7 @@ export default function Dashboard() {
   }, [showToast])
 
   const handleLevelUp = useCallback((newLevel: number) => {
-    console.log(`Level Up! New level: ${newLevel}`)
+    logger.info('Level up achieved', { newLevel, userId })
     showToast(`LEVEL UP! Now level ${newLevel}`, undefined, 'success')
     
     // Show celebration modal
@@ -137,7 +140,7 @@ export default function Dashboard() {
   }, [showToast])
 
   const handleBadgeUnlock = useCallback((badge: any) => {
-    console.log('Badge unlocked!', badge)
+    logger.info('Badge unlocked', { badgeName: badge.name, badgeKey: badge.badge_key, userId })
     showToast(`Badge Unlocked: ${badge.name}`, undefined, 'success')
     
     // Show celebration modal
@@ -151,7 +154,7 @@ export default function Dashboard() {
   }, [showToast])
 
   const handleProgressUpdate = useCallback((topic: string, newAvgScore: number) => {
-    console.log(`Progress updated: ${topic} - ${newAvgScore}%`)
+    logger.debug('Progress updated', { topic, newAvgScore, userId })
     
     // Update topic in progress
     setProgress(prev => {

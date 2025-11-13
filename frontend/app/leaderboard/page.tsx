@@ -6,6 +6,9 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { supabase, LeaderboardEntry } from '@/lib/supabase'
 import { useRealtimeLeaderboard } from '@/lib/useRealtimeXP'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('LeaderboardPage')
 
 export default function LeaderboardPage() {
   const { userId } = useAuth()
@@ -51,13 +54,13 @@ export default function LeaderboardPage() {
         rank: index + 1
       }))
 
-      console.log('[LEADERBOARD] Data loaded:', rankedData.length, 'entries')
-      console.log('[LEADERBOARD] Top 3:', rankedData.slice(0, 3))
+      logger.info('Leaderboard data loaded', { entriesCount: rankedData.length, userId })
+      logger.debug('Top 3 leaderboard entries', { top3: rankedData.slice(0, 3).map(e => ({ rank: e.rank, username: e.username, xp: e.total_xp })) })
       
       // Debug first entry specifically
       if (rankedData.length > 0) {
         const first = rankedData[0]
-        console.log('[LEADERBOARD] First entry details:', {
+        logger.debug('First leaderboard entry details', {
           rank: first.rank,
           id: first.id,
           username: first.username,
@@ -70,7 +73,7 @@ export default function LeaderboardPage() {
       setLastUpdate(new Date())
     } catch (err) {
       setError('Failed to load leaderboard')
-      console.error('Leaderboard error:', err)
+      logger.error('Leaderboard error', { userId, error: String(err) })
     } finally {
       setLoading(false)
     }

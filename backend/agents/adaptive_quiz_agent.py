@@ -8,8 +8,11 @@ import os
 import json
 from typing import Dict, List, Optional, Tuple
 from dotenv import load_dotenv
+from utils.logger import get_logger
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -399,7 +402,7 @@ Make sure:
         
         for model in models:
             try:
-                print(f"Trying model: {model} for {difficulty} difficulty")
+                logger.info("Attempting quiz generation with model", model=model, difficulty=difficulty, num_questions=num_questions)
                 # Temporarily set the model
                 original_model = AdaptiveQuizAgent.MODELS['primary']
                 AdaptiveQuizAgent.MODELS['primary'] = model
@@ -411,11 +414,11 @@ Make sure:
                 # Restore original model
                 AdaptiveQuizAgent.MODELS['primary'] = original_model
                 
-                print(f"✅ Model {model} succeeded for {difficulty} quiz!")
+                logger.info("Quiz generation succeeded", model=model, difficulty=difficulty, questions_generated=len(result.get('questions', [])))
                 return result
                 
             except Exception as e:
-                print(f"Model {model} failed: {str(e)}")
+                logger.warning("Model failed for quiz generation", model=model, difficulty=difficulty, error=str(e))
                 last_error = e
                 # Restore original model before trying next
                 AdaptiveQuizAgent.MODELS['primary'] = original_model

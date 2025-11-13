@@ -5,6 +5,9 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { useRouter } from 'next/navigation'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('AchievementsPage')
 
 interface Badge {
   id: string
@@ -70,7 +73,7 @@ export default function AchievementsPage() {
       setSummary(summaryData)
     } catch (err: any) {
       setError(err.message)
-      console.error('Achievements error:', err)
+      logger.error('Achievements error', { userId, error: err.message })
     } finally {
       setLoading(false)
     }

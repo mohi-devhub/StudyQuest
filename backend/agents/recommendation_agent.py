@@ -9,8 +9,11 @@ import json
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from utils.logger import get_logger
 
 load_dotenv()
+
+logger = get_logger(__name__)
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -420,7 +423,7 @@ Format as JSON:
                 }
         
         except Exception as e:
-            print(f"AI enhancement failed: {e}")
+            logger.warning("AI enhancement failed for recommendations", error=str(e), recommendations_count=len(recommendations))
             return {
                 'recommendations': recommendations,
                 'ai_enhanced': False,
