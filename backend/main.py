@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 
 # Import routers
-from routes import auth, study, quiz, progress_v2, achievements, coach, pdf_quiz
+from routes import auth, study, quiz, progress_v2, achievements, coach, pdf_quiz, health
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -42,6 +42,7 @@ app.add_middleware(
 )
 
 # Mount routers
+app.include_router(health.router)  # Health check endpoints
 app.include_router(auth.router)
 app.include_router(study.router)
 app.include_router(quiz.router)
@@ -70,12 +71,6 @@ async def add_security_headers(request: Request, call_next):
 @limiter.limit("10/minute")
 async def root(request: Request):
     return {"message": "StudyQuest Backend Running"}
-
-
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
 
 
 if __name__ == "__main__":

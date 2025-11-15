@@ -9,11 +9,27 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+# Connection pool configuration
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "5"))
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+
 # Initialize Supabase client
 supabase: Client = None
 
 if SUPABASE_URL and SUPABASE_KEY:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    # Create client with connection pooling configuration
+    supabase = create_client(
+        SUPABASE_URL, 
+        SUPABASE_KEY,
+        options={
+            "db": {
+                "pool_size": DB_POOL_SIZE,
+                "max_overflow": DB_MAX_OVERFLOW,
+                "pool_timeout": DB_POOL_TIMEOUT
+            }
+        }
+    )
 else:
     raise ValueError(
         "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
