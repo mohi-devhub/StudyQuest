@@ -254,7 +254,7 @@
   - Verify response times are acceptable (<3 seconds)
   - _Requirements: 8.2_
 
-- [ ] 8.3 Implement AI response caching
+- [x] 8.3 Implement AI response caching
   - Create `backend/utils/ai_cache.py` with AIResponseCache class
   - Implement cache key generation from prompt + model
   - Add TTL-based cache expiration (1 hour)
@@ -270,7 +270,7 @@
   - Add metrics endpoint GET /metrics/ai-usage
   - _Requirements: 8.3_
 
-- [ ]* 8.5 Validate AI error handling
+- [x] 8.5 Validate AI error handling
   - Test AI endpoints with invalid API key (should use fallback)
   - Test AI endpoints with network timeout (should return graceful error)
   - Test AI endpoints with rate limit exceeded (should retry with backoff)

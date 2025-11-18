@@ -9,10 +9,12 @@ import json
 from typing import Dict, List, Optional, Tuple
 from dotenv import load_dotenv
 from utils.logger import get_logger
+from utils.ai_cache import get_quiz_cache
 
 load_dotenv()
 
 logger = get_logger(__name__)
+quiz_cache = get_quiz_cache()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -175,6 +177,26 @@ class AdaptiveQuizAgent:
         if not notes or not notes.strip():
             raise ValueError("Notes cannot be empty")
         
+        # Check cache first
+        cache_key_params = {
+            'difficulty': difficulty,
+            'num_questions': num_questions
+        }
+        cached_response = quiz_cache.get(
+            notes,
+            AdaptiveQuizAgent.MODELS['primary'],
+            **cache_key_params
+        )
+        
+        if cached_response:
+            logger.info(
+                "Quiz retrieved from cache",
+                difficulty=difficulty,
+                num_questions=num_questions,
+                cache_hit=True
+            )
+            return cached_response
+        
         # Get difficulty context
         diff_context = AdaptiveQuizAgent.get_difficulty_context(difficulty)
         
@@ -285,15 +307,33 @@ Make sure:
                     questions, num_questions, difficulty
                 )
                 
-                return {
+                result = {
                     "difficulty": difficulty,
                     "questions": validated_questions,
                     "metadata": {
                         "model": AdaptiveQuizAgent.MODELS['primary'],
                         "cognitive_level": diff_context['cognitive_level'],
-                        "generated_count": len(validated_questions)
+                        "generated_count": len(validated_questions),
+                        "cached": False
                     }
                 }
+                
+                # Cache the result
+                quiz_cache.set(
+                    notes,
+                    AdaptiveQuizAgent.MODELS['primary'],
+                    result,
+                    **cache_key_params
+                )
+                
+                logger.info(
+                    "Quiz generated and cached",
+                    difficulty=difficulty,
+                    num_questions=num_questions,
+                    cache_hit=False
+                )
+                
+                return result
                 
         except httpx.HTTPStatusError as e:
             error_detail = e.response.text

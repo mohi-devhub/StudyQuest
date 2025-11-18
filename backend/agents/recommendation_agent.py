@@ -10,10 +10,12 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from utils.logger import get_logger
+from utils.ai_cache import get_recommendation_cache
 
 load_dotenv()
 
 logger = get_logger(__name__)
+recommendation_cache = get_recommendation_cache()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -351,6 +353,14 @@ class RecommendationAgent:
             if user_progress else 0
         )
         
+        # Create cache key from user progress summary
+        cache_key_params = {
+            'total_attempts': total_attempts,
+            'avg_score': round(avg_overall_score, 1),
+            'topics_count': len(user_progress),
+            'recommendations_count': len(recommendations)
+        }
+        
         prompt = f"""You are an expert learning advisor. Based on the student's performance data, provide personalized study recommendations.
 
 Student Performance Summary:
@@ -373,6 +383,21 @@ Format as JSON:
   "priority_advice": "..."
 }}
 """
+        
+        # Check cache first
+        cached_response = recommendation_cache.get(
+            prompt,
+            RecommendationAgent.MODELS['primary'],
+            **cache_key_params
+        )
+        
+        if cached_response:
+            logger.info(
+                "Recommendations retrieved from cache",
+                cache_hit=True,
+                recommendations_count=len(recommendations)
+            )
+            return cached_response
         
         try:
             headers = {
@@ -411,7 +436,7 @@ Format as JSON:
                 content = data["choices"][0]["message"]["content"]
                 ai_insights = json.loads(content)
                 
-                return {
+                result = {
                     'recommendations': recommendations,
                     'ai_enhanced': True,
                     'ai_insights': ai_insights,
@@ -421,6 +446,22 @@ Format as JSON:
                         'topics_studied': len(user_progress)
                     }
                 }
+                
+                # Cache the result
+                recommendation_cache.set(
+                    prompt,
+                    RecommendationAgent.MODELS['primary'],
+                    result,
+                    **cache_key_params
+                )
+                
+                logger.info(
+                    "Recommendations generated and cached",
+                    cache_hit=False,
+                    recommendations_count=len(recommendations)
+                )
+                
+                return result
         
         except Exception as e:
             logger.warning("AI enhancement failed for recommendations", error=str(e), recommendations_count=len(recommendations))

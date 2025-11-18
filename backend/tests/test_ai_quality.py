@@ -612,6 +612,302 @@ class TestAIErrorHandling:
             assert 'question' in q
             assert len(q['options']) == 4
             assert q['answer'] in ['A', 'B', 'C', 'D']
+    
+    @pytest.mark.asyncio
+    async def test_quiz_with_invalid_api_key(self):
+        """
+        Test that quiz generation handles invalid API key with fallback.
+        Requirement: 8.4 - Invalid API key handling
+        """
+        import os
+        
+        # Save original API key
+        original_key = os.getenv('OPENROUTER_API_KEY')
+        
+        try:
+            # Set invalid API key
+            os.environ['OPENROUTER_API_KEY'] = 'invalid_key_12345'
+            
+            notes = """
+            Topic: Error Handling Test
+            Summary: Testing invalid API key scenario.
+            Key Points:
+            1. Should handle gracefully
+            2. Should provide user-friendly error
+            3. Should not expose sensitive details
+            """
+            
+            # Should raise exception with user-friendly message
+            with pytest.raises(Exception) as exc_info:
+                await AdaptiveQuizAgent.generate_adaptive_quiz(
+                    notes=notes,
+                    difficulty='medium',
+                    num_questions=2
+                )
+            
+            # Verify error message is user-friendly (not exposing API key)
+            error_message = str(exc_info.value)
+            assert 'invalid_key_12345' not in error_message.lower(), \
+                "Error message should not expose API key"
+            assert any(term in error_message.lower() for term in ['error', 'failed', 'api']), \
+                "Error message should be informative"
+            
+        finally:
+            # Restore original API key
+            if original_key:
+                os.environ['OPENROUTER_API_KEY'] = original_key
+            else:
+                os.environ.pop('OPENROUTER_API_KEY', None)
+    
+    @pytest.mark.asyncio
+    async def test_quiz_with_network_timeout(self):
+        """
+        Test that quiz generation handles network timeout gracefully.
+        Requirement: 8.4 - Network timeout handling
+        """
+        import httpx
+        from unittest.mock import patch, AsyncMock
+        
+        notes = """
+        Topic: Network Timeout Test
+        Summary: Testing timeout scenario.
+        Key Points:
+        1. Should handle timeouts
+        2. Should return graceful error
+        3. Should not hang indefinitely
+        """
+        
+        # Mock httpx.AsyncClient to simulate timeout
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.__aexit__.return_value = None
+            mock_instance.post.side_effect = httpx.TimeoutException("Request timed out")
+            mock_client.return_value = mock_instance
+            
+            # Should raise exception with timeout information
+            with pytest.raises(Exception) as exc_info:
+                await AdaptiveQuizAgent.generate_adaptive_quiz(
+                    notes=notes,
+                    difficulty='medium',
+                    num_questions=2
+                )
+            
+            # Verify error message is user-friendly
+            error_message = str(exc_info.value).lower()
+            assert any(term in error_message for term in ['timeout', 'timed out', 'failed']), \
+                f"Error message should mention timeout: {error_message}"
+    
+    @pytest.mark.asyncio
+    async def test_recommendation_with_invalid_api_key(self):
+        """
+        Test that recommendations handle invalid API key gracefully.
+        Requirement: 8.4 - Invalid API key handling for recommendations
+        """
+        import os
+        from datetime import datetime
+        
+        # Save original API key
+        original_key = os.getenv('OPENROUTER_API_KEY')
+        
+        try:
+            # Set invalid API key
+            os.environ['OPENROUTER_API_KEY'] = 'invalid_recommendation_key'
+            
+            recent_date = datetime.now().isoformat()
+            user_progress = [
+                {
+                    'topic': 'Python',
+                    'avg_score': 60.0,
+                    'total_attempts': 3,
+                    'last_attempt': recent_date
+                }
+            ]
+            
+            # Should still return recommendations without AI enhancement
+            result = await RecommendationAgent.get_study_recommendations(
+                user_progress=user_progress,
+                max_recommendations=3,
+                include_ai_insights=True  # Request AI insights
+            )
+            
+            # Should have recommendations even if AI fails
+            assert 'recommendations' in result, \
+                "Should return recommendations even with invalid API key"
+            assert len(result['recommendations']) > 0, \
+                "Should have at least one recommendation"
+            
+            # AI enhancement should be disabled due to error
+            assert result.get('ai_enhanced') == False, \
+                "AI enhancement should be disabled when API key is invalid"
+            
+        finally:
+            # Restore original API key
+            if original_key:
+                os.environ['OPENROUTER_API_KEY'] = original_key
+            else:
+                os.environ.pop('OPENROUTER_API_KEY', None)
+    
+    @pytest.mark.asyncio
+    async def test_recommendation_with_network_timeout(self):
+        """
+        Test that recommendations handle network timeout gracefully.
+        Requirement: 8.4 - Network timeout handling for recommendations
+        """
+        import httpx
+        from unittest.mock import patch, AsyncMock
+        from datetime import datetime
+        
+        recent_date = datetime.now().isoformat()
+        user_progress = [
+            {
+                'topic': 'JavaScript',
+                'avg_score': 55.0,
+                'total_attempts': 2,
+                'last_attempt': recent_date
+            }
+        ]
+        
+        # Mock httpx.AsyncClient to simulate timeout
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.__aexit__.return_value = None
+            mock_instance.post.side_effect = httpx.TimeoutException("Request timed out")
+            mock_client.return_value = mock_instance
+            
+            # Should still return recommendations without AI enhancement
+            result = await RecommendationAgent.get_study_recommendations(
+                user_progress=user_progress,
+                max_recommendations=3,
+                include_ai_insights=True
+            )
+            
+            # Should have recommendations even if AI times out
+            assert 'recommendations' in result
+            assert len(result['recommendations']) > 0
+            assert result.get('ai_enhanced') == False, \
+                "AI enhancement should be disabled on timeout"
+    
+    @pytest.mark.asyncio
+    async def test_coach_with_invalid_api_key(self):
+        """
+        Test that coach agent handles invalid API key gracefully.
+        Requirement: 8.4 - Invalid API key handling for coach
+        """
+        import os
+        
+        # Save original API key
+        original_key = os.getenv('OPENROUTER_API_KEY')
+        
+        try:
+            # Set invalid API key
+            os.environ['OPENROUTER_API_KEY'] = 'invalid_coach_key'
+            
+            # Should raise exception with user-friendly message
+            with pytest.raises(Exception) as exc_info:
+                await study_topic(
+                    topic='Error Handling',
+                    num_questions=2
+                )
+            
+            # Verify error message is informative but doesn't expose key
+            error_message = str(exc_info.value)
+            assert 'invalid_coach_key' not in error_message.lower(), \
+                "Error message should not expose API key"
+            
+        finally:
+            # Restore original API key
+            if original_key:
+                os.environ['OPENROUTER_API_KEY'] = original_key
+            else:
+                os.environ.pop('OPENROUTER_API_KEY', None)
+    
+    @pytest.mark.asyncio
+    async def test_error_messages_are_user_friendly(self):
+        """
+        Test that all error messages are user-friendly and don't expose internals.
+        Requirement: 8.4 - User-friendly error messages
+        """
+        # Test 1: Empty notes error
+        try:
+            await AdaptiveQuizAgent.generate_adaptive_quiz(
+                notes="",
+                difficulty='medium',
+                num_questions=3
+            )
+        except ValueError as e:
+            error_msg = str(e)
+            assert len(error_msg) > 0, "Error message should not be empty"
+            assert 'empty' in error_msg.lower() or 'cannot' in error_msg.lower(), \
+                "Error message should explain the issue"
+        
+        # Test 2: Missing API key error
+        import os
+        original_key = os.getenv('OPENROUTER_API_KEY')
+        try:
+            os.environ.pop('OPENROUTER_API_KEY', None)
+            
+            notes = "Test notes for error handling"
+            
+            with pytest.raises(ValueError) as exc_info:
+                await AdaptiveQuizAgent.generate_adaptive_quiz(
+                    notes=notes,
+                    difficulty='medium',
+                    num_questions=2
+                )
+            
+            error_msg = str(exc_info.value)
+            assert 'OPENROUTER_API_KEY' in error_msg, \
+                "Error should mention missing API key"
+            assert 'not found' in error_msg.lower() or 'missing' in error_msg.lower(), \
+                "Error should be clear about what's missing"
+            
+        finally:
+            if original_key:
+                os.environ['OPENROUTER_API_KEY'] = original_key
+    
+    @pytest.mark.asyncio
+    async def test_fallback_with_multiple_model_failures(self):
+        """
+        Test that system tries multiple fallback models before failing.
+        Requirement: 8.4 - Fallback mechanism with retries
+        """
+        import httpx
+        from unittest.mock import patch, AsyncMock
+        
+        notes = """
+        Topic: Fallback Testing
+        Summary: Testing multiple model fallback.
+        Key Points:
+        1. Primary model fails
+        2. Fallback models tried
+        3. Graceful degradation
+        """
+        
+        # Mock httpx to fail for all models
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.__aexit__.return_value = None
+            mock_instance.post.side_effect = httpx.HTTPStatusError(
+                "API Error",
+                request=AsyncMock(),
+                response=AsyncMock(status_code=500, text="Internal Server Error")
+            )
+            mock_client.return_value = mock_instance
+            
+            # Should try fallback and eventually fail with informative error
+            with pytest.raises(Exception) as exc_info:
+                await AdaptiveQuizAgent.generate_adaptive_quiz_with_fallback(
+                    notes=notes,
+                    difficulty='medium',
+                    num_questions=2
+                )
+            
+            error_message = str(exc_info.value).lower()
+            assert 'failed' in error_message or 'error' in error_message, \
+                "Error message should indicate failure"
 
 
 if __name__ == "__main__":
