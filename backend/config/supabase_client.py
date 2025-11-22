@@ -19,17 +19,9 @@ supabase: Client = None
 
 if SUPABASE_URL and SUPABASE_KEY:
     # Create client with connection pooling configuration
-    supabase = create_client(
-        SUPABASE_URL, 
-        SUPABASE_KEY,
-        options={
-            "db": {
-                "pool_size": DB_POOL_SIZE,
-                "max_overflow": DB_MAX_OVERFLOW,
-                "pool_timeout": DB_POOL_TIMEOUT
-            }
-        }
-    )
+    # Note: Connection pooling is handled internally by the Supabase client
+    # The pool configuration variables are kept for future use if needed
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
     raise ValueError(
         "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"

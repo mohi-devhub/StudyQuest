@@ -228,17 +228,22 @@ await fetch('/progress/reset', {
 
 ## API Endpoint Summary
 
-| Endpoint | Method | Auth | Purpose |
-|----------|--------|------|---------|
-| `/progress/{user_id}` | GET | ✅ | Fetch all user data |
-| `/progress/update` | POST | ✅ | Award XP |
-| `/progress/reset` | POST | ✅ | Reset topic |
-| `/progress/evaluate` | POST | ✅ | Evaluate quiz (existing) |
-| `/progress/stats` | GET | ✅ | Get statistics (existing) |
-| `/progress/topics` | GET | ✅ | Get all topics (existing) |
-| `/progress/topics/{topic}` | GET | ✅ | Get topic details (existing) |
-| `/progress/xp` | GET | ✅ | Get total XP (existing) |
-| `/progress/xp/logs` | GET | ✅ | Get XP history (existing) |
+| Endpoint | Method | Auth | Rate Limit | Purpose |
+|----------|--------|------|------------|---------|
+| `/health` | GET | ❌ | 10/min | Basic health check |
+| `/health/detailed` | GET | ❌ | 10/min | Detailed health with dependencies |
+| `/progress/{user_id}` | GET | ✅ | 10/min | Fetch all user data |
+| `/progress/update` | POST | ✅ | 10/min | Award XP |
+| `/progress/reset` | POST | ✅ | 10/min | Reset topic |
+| `/progress/evaluate` | POST | ✅ | 10/min | Evaluate quiz (existing) |
+| `/progress/stats` | GET | ✅ | 10/min | Get statistics (existing) |
+| `/progress/topics` | GET | ✅ | 10/min | Get all topics (existing) |
+| `/progress/topics/{topic}` | GET | ✅ | 10/min | Get topic details (existing) |
+| `/progress/xp` | GET | ✅ | 10/min | Get total XP (existing) |
+| `/progress/xp/logs` | GET | ✅ | 10/min | Get XP history (existing) |
+| `/coach/feedback/{user_id}` | GET | ✅ | 5/min | Get AI coaching feedback |
+| `/study/retry` | POST | ✅ | 5/min | Retry study session |
+| `/quiz/*` | POST | ✅ | 5/min | Quiz generation endpoints |
 
 ## Validation Rules
 
@@ -310,6 +315,455 @@ Before deploying to production:
 - **Test Script**: `backend/test_progress_endpoints.py`
 - **Implementation**: `docs/IMPLEMENTATION_PROGRESS_XP.md`
 
+---
+
+## Health Check Endpoints
+
+### GET /health
+**Purpose**: Basic health check for monitoring and load balancers
+
+**Authentication**: Not required  
+**Rate Limit**: 10 requests/minute
+
+**Response**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-11-22T10:30:00.000Z"
+}
+```
+
+**Example**:
+```bash
+curl -X GET "http://localhost:8000/health"
+```
+
+**Use Cases**:
+- Load balancer health checks
+- Uptime monitoring services
+- Docker health checks
+- Quick availability verification
+
+---
+
+### GET /health/detailed
+**Purpose**: Comprehensive health check with dependency status
+
+**Authentication**: Not required  
+**Rate Limit**: 10 requests/minute
+
+**Response**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-11-22T10:30:00.000Z",
+  "dependencies": {
+    "supabase": {
+      "status": "healthy",
+      "response_time_ms": 45
+    },
+    "openrouter": {
+      "status": "healthy"
+    }
+  }
+}
+```
+
+**Status Values**:
+- `healthy`: All systems operational
+- `degraded`: Some dependencies failing but service still functional
+- `unhealthy`: Critical failure, service unavailable
+
+**Example**:
+```bash
+curl -X GET "http://localhost:8000/health/detailed"
+```
+
+**Use Cases**:
+- Detailed system diagnostics
+- Dependency monitoring
+- Troubleshooting connectivity issues
+- Pre-deployment verification
+
+**Dependency Checks**:
+1. **Supabase**: Queries users table to verify database connectivity
+2. **OpenRouter**: Checks AI service availability
+
+---
+
+## Rate Limiting
+
+All API endpoints are protected by rate limiting to prevent abuse and ensure fair usage.
+
+### Rate Limit Configuration
+
+| Endpoint Type | Limit | Window |
+|--------------|-------|--------|
+| Health checks | 10 requests | per minute |
+| Standard API | 10 requests | per minute |
+| AI endpoints | 5 requests | per minute |
+
+### AI Endpoints (Stricter Limits)
+
+The following endpoints have stricter rate limits due to computational cost:
+- `/coach/feedback/{user_id}` - 5 requests/minute
+- `/study/retry` - 5 requests/minute
+- `/quiz/*` (all quiz generation endpoints) - 5 requests/minute
+
+### Rate Limit Headers
+
+When rate limited, the API returns:
+
+**Status Code**: `429 Too Many Requests`
+
+**Headers**:
+```
+X-RateLimit-Limit: 10
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1700654400
+Retry-After: 60
+```
+
+**Response Body**:
+```json
+{
+  "error": "Rate limit exceeded",
+  "detail": "Too many requests. Please try again in 60 seconds."
+}
+```
+
+### Handling Rate Limits
+
+**Client-Side Best Practices**:
+
+```javascript
+async function makeRequest(url, options) {
+  const response = await fetch(url, options);
+  
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    console.log(`Rate limited. Retry after ${retryAfter} seconds`);
+    
+    // Wait and retry
+    await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+    return makeRequest(url, options);
+  }
+  
+  return response;
+}
+```
+
+**Python Example**:
+```python
+import time
+import requests
+
+def make_request(url, headers):
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 429:
+        retry_after = int(response.headers.get('Retry-After', 60))
+        print(f"Rate limited. Waiting {retry_after} seconds...")
+        time.sleep(retry_after)
+        return make_request(url, headers)
+    
+    return response
+```
+
+### Rate Limit Implementation
+
+Rate limiting is implemented using **SlowAPI** with in-memory storage:
+
+```python
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+
+# Standard endpoints
+@limiter.limit("10/minute")
+async def standard_endpoint():
+    pass
+
+# AI endpoints (stricter)
+@limiter.limit("5/minute")
+async def ai_endpoint():
+    pass
+```
+
+---
+
+## Authentication
+
+### JWT Authentication
+
+Most endpoints require JWT authentication via Supabase Auth.
+
+**Required Header**:
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+### Getting a JWT Token
+
+**1. Sign Up / Login via Frontend**:
+```javascript
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Sign up
+const { data, error } = await supabase.auth.signUp({
+  email: 'user@example.com',
+  password: 'password123'
+});
+
+// Login
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'password123'
+});
+
+// Get token
+const token = data.session.access_token;
+```
+
+**2. Use Token in API Requests**:
+```javascript
+const response = await fetch('http://localhost:8000/progress/update', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    points: 50,
+    reason: 'quiz_completion'
+  })
+});
+```
+
+### Authentication Errors
+
+**401 Unauthorized**:
+```json
+{
+  "detail": "Not authenticated"
+}
+```
+
+**Causes**:
+- Missing Authorization header
+- Invalid JWT token
+- Expired JWT token
+- Malformed token
+
+**403 Forbidden**:
+```json
+{
+  "detail": "Access forbidden"
+}
+```
+
+**Causes**:
+- Attempting to access another user's data
+- Insufficient permissions
+
+### Protected Endpoints
+
+All endpoints except `/health` and `/health/detailed` require authentication:
+
+**Protected**:
+- ✅ All `/progress/*` endpoints
+- ✅ All `/coach/*` endpoints
+- ✅ All `/study/*` endpoints
+- ✅ All `/quiz/*` endpoints
+- ✅ All `/achievements/*` endpoints
+
+**Public**:
+- ❌ `/health`
+- ❌ `/health/detailed`
+- ❌ `/docs` (API documentation)
+
+### Token Validation
+
+The backend validates JWT tokens using Supabase's JWT secret:
+
+```python
+from utils.auth import verify_user
+
+@router.post("/progress/update")
+async def update_xp(
+    request: UpdateXPRequest,
+    current_user: dict = Depends(verify_user)
+):
+    user_id = current_user['user_id']
+    # Process request...
+```
+
+**Token Claims**:
+- `sub`: User ID (UUID)
+- `email`: User email
+- `exp`: Expiration timestamp
+- `iat`: Issued at timestamp
+
+### Security Best Practices
+
+1. **Never expose tokens in logs**:
+   ```python
+   # Bad
+   logger.info(f"Token: {token}")
+   
+   # Good
+   logger.info(f"User authenticated: {user_id}")
+   ```
+
+2. **Use HTTPS in production**:
+   - Tokens transmitted over HTTP can be intercepted
+   - Always use HTTPS for API requests
+
+3. **Implement token refresh**:
+   ```javascript
+   // Refresh token before expiration
+   const { data, error } = await supabase.auth.refreshSession();
+   const newToken = data.session.access_token;
+   ```
+
+4. **Handle token expiration gracefully**:
+   ```javascript
+   if (response.status === 401) {
+     // Token expired, redirect to login
+     window.location.href = '/login';
+   }
+   ```
+
+---
+
+## Request/Response Examples
+
+### Complete Request Examples
+
+**With Authentication and Rate Limiting**:
+
+```bash
+# cURL with authentication
+curl -X POST "http://localhost:8000/progress/update" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "points": 100,
+    "reason": "quiz_completion",
+    "metadata": {"topic": "Python", "score": 85}
+  }'
+
+# Check rate limit headers
+curl -I "http://localhost:8000/health"
+```
+
+**JavaScript with Error Handling**:
+
+```javascript
+async function updateXP(points, reason, metadata) {
+  try {
+    const response = await fetch('/progress/update', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getToken()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ points, reason, metadata })
+    });
+    
+    // Check rate limiting
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      throw new Error(`Rate limited. Retry in ${retryAfter}s`);
+    }
+    
+    // Check authentication
+    if (response.status === 401) {
+      throw new Error('Authentication required');
+    }
+    
+    // Check authorization
+    if (response.status === 403) {
+      throw new Error('Access forbidden');
+    }
+    
+    const data = await response.json();
+    return data;
+    
+  } catch (error) {
+    console.error('Failed to update XP:', error);
+    throw error;
+  }
+}
+```
+
+**Python with Retry Logic**:
+
+```python
+import requests
+import time
+from typing import Dict, Any
+
+def make_authenticated_request(
+    url: str,
+    token: str,
+    method: str = 'GET',
+    data: Dict[str, Any] = None,
+    max_retries: int = 3
+) -> Dict[str, Any]:
+    """Make authenticated API request with retry logic"""
+    
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            if method == 'GET':
+                response = requests.get(url, headers=headers)
+            else:
+                response = requests.post(url, headers=headers, json=data)
+            
+            # Handle rate limiting
+            if response.status_code == 429:
+                retry_after = int(response.headers.get('Retry-After', 60))
+                print(f"Rate limited. Waiting {retry_after}s...")
+                time.sleep(retry_after)
+                continue
+            
+            # Handle authentication errors
+            if response.status_code == 401:
+                raise Exception('Authentication failed')
+            
+            # Handle authorization errors
+            if response.status_code == 403:
+                raise Exception('Access forbidden')
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.exceptions.RequestException as e:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(2 ** attempt)  # Exponential backoff
+    
+    raise Exception('Max retries exceeded')
+```
+
+---
+
 ## Status: ✅ COMPLETE
 
 All requested backend API endpoints have been successfully implemented, tested, and documented. Ready for frontend integration.
+
+### Recent Updates
+
+- ✅ Health check endpoints documented
+- ✅ Rate limiting behavior documented
+- ✅ Authentication requirements clarified
+- ✅ Request/response examples added
+- ✅ Error handling guide updated

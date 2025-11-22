@@ -674,7 +674,7 @@ async def generate_adaptive_quiz(
 @router.get("/recommendations")
 @limiter.limit("5/minute")
 async def get_study_recommendations(
-    http_request: Request,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
     max_recommendations: int = 5,
     include_ai_insights: bool = True

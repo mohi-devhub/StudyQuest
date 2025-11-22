@@ -31,7 +31,7 @@ class CoachFeedbackResponse(BaseModel):
 
 @router.get("/feedback/{user_id}", response_model=CoachFeedbackResponse)
 @limiter.limit("5/minute")
-async def get_adaptive_feedback(http_request: Request, user_id: str):
+async def get_adaptive_feedback(request: Request, user_id: str):
     """
     Get personalized adaptive feedback for a user
     

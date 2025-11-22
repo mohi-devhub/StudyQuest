@@ -1,0 +1,45 @@
+================================================================================
+DEPENDENCY VULNERABILITY SCAN REPORT
+================================================================================
+
+Total vulnerabilities found: 3
+
+
+CRITICAL SEVERITY (1 vulnerabilities)
+--------------------------------------------------------------------------------
+
+  Package: next (npm)
+  CVE: N/A
+  Description: Authorization Bypass in Next.js Middleware
+  Vulnerable Versions: 0.9.9 - 14.2.31
+  Patched Versions: unknown
+
+
+HIGH SEVERITY (1 vulnerabilities)
+--------------------------------------------------------------------------------
+
+  Package: glob (npm)
+  CVE: N/A
+  Description: glob CLI: Command injection via -c/--cmd executes matches with shell:true
+  Vulnerable Versions: 10.2.0 - 10.4.5
+  Patched Versions: unknown
+
+
+MODERATE SEVERITY (1 vulnerabilities)
+--------------------------------------------------------------------------------
+
+  Package: js-yaml (npm)
+  CVE: N/A
+  Description: js-yaml has prototype pollution in merge (<<)
+  Vulnerable Versions: <3.14.2 || >=4.0.0 <4.1.1
+  Patched Versions: unknown
+
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+1. Update packages with critical/high vulnerabilities immediately
+2. Review and update moderate/medium vulnerabilities
+3. Set up automated dependency scanning in CI/CD
+4. Regularly run security audits
+================================================================================
