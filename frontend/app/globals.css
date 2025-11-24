@@ -7,16 +7,16 @@
 :root {
   /* Strict Black & White Color Palette */
   --bg: #000000;
-  --text: #FFFFFF;
-  --border: #CCCCCC;
+  --text: #ffffff;
+  --border: #cccccc;
   --muted: #808080;
   --separator: #333333;
-  
+
   /* Legacy support */
   --terminal-black: var(--bg);
   --terminal-white: var(--text);
   --terminal-gray: var(--border);
-  
+
   /* Opacity variants */
   --bg-overlay: rgba(0, 0, 0, 0.9);
   --text-dim: rgba(255, 255, 255, 0.6);
@@ -27,16 +27,15 @@
 }
 
 /* Force black background in all modes */
-@media (prefers-color-scheme: light),
-       (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light), (prefers-color-scheme: dark) {
   :root {
     --bg: #000000;
-    --text: #FFFFFF;
+    --text: #ffffff;
   }
-  
+
   body {
     background-color: #000000 !important;
-    color: #FFFFFF !important;
+    color: #ffffff !important;
   }
 }
 
@@ -53,10 +52,14 @@ html {
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Courier New', monospace;
+  font-family:
+    "JetBrains Mono", "Fira Code", "SF Mono", "Consolas", "Courier New",
+    monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'liga' 1, 'calt' 1; /* Enable ligatures */
+  font-feature-settings:
+    "liga" 1,
+    "calt" 1; /* Enable ligatures */
   min-height: 100vh;
 }
 
@@ -81,34 +84,34 @@ main {
 
 ::-webkit-scrollbar-thumb {
   background: #808080;
-  border: 1px solid #CCCCCC;
+  border: 1px solid #cccccc;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #CCCCCC;
-  border-color: #FFFFFF;
+  background: #cccccc;
+  border-color: #ffffff;
 }
 
 /* Selection - Inverted B&W */
 ::selection {
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   color: #000000;
 }
 
 ::-moz-selection {
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   color: #000000;
 }
 
 /* Focus styles - White outline only */
 *:focus {
-  outline: 1px solid #FFFFFF;
+  outline: 1px solid #ffffff;
   outline-offset: 2px;
 }
 
 button:focus,
 a:focus {
-  outline: 2px solid #FFFFFF;
+  outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
 
@@ -119,23 +122,37 @@ a {
 }
 
 a:hover {
-  color: #FFFFFF;
+  color: #ffffff;
 }
 
 /* Terminal Animations */
 @keyframes blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 @keyframes typing {
-  from { width: 0; }
-  to { width: 100%; }
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideIn {
@@ -162,7 +179,7 @@ a:hover {
 
 /* Terminal cursor effect */
 .cursor-blink::after {
-  content: '_';
+  content: "_";
   animation: blink 1s infinite;
   margin-left: 2px;
 }
@@ -171,22 +188,24 @@ a:hover {
 .typing-animation {
   overflow: hidden;
   white-space: nowrap;
-  border-right: 2px solid #FFFFFF;
-  animation: typing 2s steps(40, end), blink 0.75s step-end infinite;
+  border-right: 2px solid #ffffff;
+  animation:
+    typing 2s steps(40, end),
+    blink 0.75s step-end infinite;
 }
 
 /* ASCII Dividers */
 .divider-ascii::before {
-  content: '════════════════════════════════════════';
+  content: "════════════════════════════════════════";
   display: block;
-  color: #CCCCCC;
+  color: #cccccc;
   font-size: 0.75rem;
   margin: 1rem 0;
   overflow: hidden;
 }
 
 .divider-dots::before {
-  content: '• • • • • • • • • • • • • • • • • • • •';
+  content: "• • • • • • • • • • • • • • • • • • • •";
   display: block;
   color: #808080;
   font-size: 0.75rem;
@@ -196,16 +215,16 @@ a:hover {
 
 /* Error styling - Pure B&W */
 .terminal-error {
-  font-family: 'JetBrains Mono', monospace;
-  color: #FFFFFF;
+  font-family: "JetBrains Mono", monospace;
+  color: #ffffff;
   background: #000000;
-  border: 1px solid #FFFFFF;
+  border: 1px solid #ffffff;
   padding: 1rem;
   font-size: 0.875rem;
 }
 
 .terminal-error::before {
-  content: '[ERROR] ';
+  content: "[ERROR] ";
   font-weight: 700;
   display: block;
   margin-bottom: 0.5rem;
@@ -229,8 +248,13 @@ a:hover {
 
 /* Loading skeleton - B&W pulse */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .skeleton {
@@ -262,31 +286,33 @@ a:hover {
   .bg-terminal {
     background-color: #000000;
   }
-  
+
   .text-terminal {
-    color: #FFFFFF;
+    color: #ffffff;
   }
-  
+
   .border-terminal {
-    border-color: #CCCCCC;
+    border-color: #cccccc;
   }
-  
+
   .text-muted {
     color: #808080;
   }
-  
+
   .border-separator {
     border-color: #333333;
   }
-  
+
   /* Override any accidental colors */
   .force-monochrome {
-    color: #FFFFFF !important;
+    color: #ffffff !important;
     background-color: #000000 !important;
   }
-  
+
   .mono-font {
-    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Courier New', monospace;
+    font-family:
+      "JetBrains Mono", "Fira Code", "SF Mono", "Consolas", "Courier New",
+      monospace;
   }
 }
 

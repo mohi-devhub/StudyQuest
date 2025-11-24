@@ -1,38 +1,41 @@
-'use client'
+"use client";
 
-import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useEffect, useState, Suspense } from "react";
 
 function ResultContent() {
-  const searchParams = useSearchParams()
-  const [mounted, setMounted] = useState(false)
-  
-  const score = Number(searchParams.get('score')) || 0
-  const correct = Number(searchParams.get('correct')) || 0
-  const total = Number(searchParams.get('total')) || 5
-  const topic = searchParams.get('topic') || 'Quiz'
+  const searchParams = useSearchParams();
+  const [mounted, setMounted] = useState(false);
+
+  const score = Number(searchParams.get("score")) || 0;
+  const correct = Number(searchParams.get("correct")) || 0;
+  const total = Number(searchParams.get("total")) || 5;
+  const topic = searchParams.get("topic") || "Quiz";
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
     return (
       <div className="min-h-screen bg-terminal-black text-terminal-white flex items-center justify-center">
         <div className="text-6xl font-bold animate-pulse">LOADING...</div>
       </div>
-    )
+    );
   }
 
   const getPerformanceLevel = () => {
-    if (score >= 90) return { text: 'EXCELLENT!', color: 'text-green-400', emoji: '🎉' }
-    if (score >= 70) return { text: 'GOOD JOB!', color: 'text-blue-400', emoji: '👍' }
-    if (score >= 50) return { text: 'KEEP TRYING!', color: 'text-yellow-400', emoji: '💪' }
-    return { text: 'STUDY MORE!', color: 'text-red-400', emoji: '📚' }
-  }
+    if (score >= 90)
+      return { text: "EXCELLENT!", color: "text-green-400", emoji: "🎉" };
+    if (score >= 70)
+      return { text: "GOOD JOB!", color: "text-blue-400", emoji: "👍" };
+    if (score >= 50)
+      return { text: "KEEP TRYING!", color: "text-yellow-400", emoji: "💪" };
+    return { text: "STUDY MORE!", color: "text-red-400", emoji: "📚" };
+  };
 
-  const performance = getPerformanceLevel()
+  const performance = getPerformanceLevel();
 
   return (
     <div className="min-h-screen bg-terminal-black text-terminal-white">
@@ -73,7 +76,9 @@ function ResultContent() {
             </div>
             <div className="flex justify-between">
               <span className="text-terminal-gray">Success Rate:</span>
-              <span className={`font-mono ${performance.color}`}>{score.toFixed(1)}%</span>
+              <span className={`font-mono ${performance.color}`}>
+                {score.toFixed(1)}%
+              </span>
             </div>
           </div>
         </div>
@@ -99,23 +104,26 @@ function ResultContent() {
           <div className="mt-8 p-6 border border-yellow-500/30 bg-yellow-500/5">
             <h3 className="text-yellow-400 font-bold mb-2">SUGGESTION:</h3>
             <p className="text-terminal-gray">
-              Consider reviewing the study materials for {topic} and trying the quiz again to improve your understanding.
+              Consider reviewing the study materials for {topic} and trying the
+              quiz again to improve your understanding.
             </p>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }
 
 export default function QuizResultPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-terminal-black text-terminal-white flex items-center justify-center">
-        <div className="text-6xl font-bold animate-pulse">LOADING...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-terminal-black text-terminal-white flex items-center justify-center">
+          <div className="text-6xl font-bold animate-pulse">LOADING...</div>
+        </div>
+      }
+    >
       <ResultContent />
     </Suspense>
-  )
+  );
 }

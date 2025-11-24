@@ -1,6 +1,6 @@
-import { motion } from 'framer-motion'
-import Link from 'next/link'
-import { BlinkingCursor } from './TypingText'
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { BlinkingCursor } from "./TypingText";
 
 export default function Header() {
   return (
@@ -54,5 +54,5 @@ export default function Header() {
         </div>
       </div>
     </motion.header>
-  )
+  );
 }

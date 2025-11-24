@@ -1,13 +1,16 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
+import { motion } from "framer-motion";
 
 interface InlineCelebrationProps {
-  message: string
-  symbol?: string
+  message: string;
+  symbol?: string;
 }
 
-export default function InlineCelebration({ message, symbol = '★' }: InlineCelebrationProps) {
+export default function InlineCelebration({
+  message,
+  symbol = "★",
+}: InlineCelebrationProps) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
@@ -19,7 +22,7 @@ export default function InlineCelebration({ message, symbol = '★' }: InlineCel
       {/* Top border */}
       <motion.div
         initial={{ width: 0 }}
-        animate={{ width: '100%' }}
+        animate={{ width: "100%" }}
         transition={{ duration: 0.5, delay: 0.1 }}
         className="border-t border-white mb-4"
       />
@@ -28,11 +31,11 @@ export default function InlineCelebration({ message, symbol = '★' }: InlineCel
       <motion.div
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ 
-          type: 'spring',
+        transition={{
+          type: "spring",
           damping: 15,
           stiffness: 200,
-          delay: 0.3 
+          delay: 0.3,
         }}
         className="text-5xl mb-4"
       >
@@ -52,10 +55,10 @@ export default function InlineCelebration({ message, symbol = '★' }: InlineCel
       {/* Bottom border */}
       <motion.div
         initial={{ width: 0 }}
-        animate={{ width: '100%' }}
+        animate={{ width: "100%" }}
         transition={{ duration: 0.5, delay: 0.6 }}
         className="border-t border-white mt-4"
       />
     </motion.div>
-  )
+  );
 }

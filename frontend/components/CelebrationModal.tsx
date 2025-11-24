@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface CelebrationModalProps {
-  type: 'level' | 'badge'
-  title: string
-  message: string
-  symbol?: string
-  isOpen: boolean
-  onClose: () => void
+  type: "level" | "badge";
+  title: string;
+  message: string;
+  symbol?: string;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 export default function CelebrationModal({
@@ -20,24 +20,24 @@ export default function CelebrationModal({
   isOpen,
   onClose,
 }: CelebrationModalProps) {
-  const [showContent, setShowContent] = useState(false)
-  
+  const [showContent, setShowContent] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
-      setShowContent(false)
-      const timer = setTimeout(() => setShowContent(true), 300)
-      
-      // Auto-close after 5 seconds
-      const closeTimer = setTimeout(onClose, 5000)
-      
-      return () => {
-        clearTimeout(timer)
-        clearTimeout(closeTimer)
-      }
-    }
-  }, [isOpen, onClose])
+      setShowContent(false);
+      const timer = setTimeout(() => setShowContent(true), 300);
 
-  const borderLine = '─'.repeat(40)
+      // Auto-close after 5 seconds
+      const closeTimer = setTimeout(onClose, 5000);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(closeTimer);
+      };
+    }
+  }, [isOpen, onClose]);
+
+  const borderLine = "─".repeat(40);
 
   return (
     <AnimatePresence>
@@ -53,10 +53,10 @@ export default function CelebrationModal({
             initial={{ opacity: 0, y: -50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            transition={{ 
-              type: 'spring',
+            transition={{
+              type: "spring",
               damping: 20,
-              stiffness: 300
+              stiffness: 300,
             }}
             className="relative border-2 border-white bg-black p-8 min-w-[400px] max-w-[600px]"
             onClick={(e) => e.stopPropagation()}
@@ -67,15 +67,15 @@ export default function CelebrationModal({
             </div>
 
             {/* Symbol (for badges) */}
-            {symbol && type === 'badge' && (
+            {symbol && type === "badge" && (
               <motion.div
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ 
-                  type: 'spring',
+                transition={{
+                  type: "spring",
                   damping: 10,
                   stiffness: 100,
-                  delay: 0.2 
+                  delay: 0.2,
                 }}
                 className="text-6xl text-center mb-6"
               >
@@ -86,8 +86,8 @@ export default function CelebrationModal({
             {/* Title with typewriter effect */}
             <div className="text-center mb-4">
               {showContent ? (
-                <TypewriterText 
-                  text={title} 
+                <TypewriterText
+                  text={title}
                   className="text-3xl font-bold text-white tracking-wider"
                   speed={50}
                 />
@@ -126,32 +126,32 @@ export default function CelebrationModal({
         </motion.div>
       )}
     </AnimatePresence>
-  )
+  );
 }
 
 // Typewriter effect component
-function TypewriterText({ 
-  text, 
-  className, 
-  speed = 100 
-}: { 
-  text: string
-  className?: string
-  speed?: number 
+function TypewriterText({
+  text,
+  className,
+  speed = 100,
+}: {
+  text: string;
+  className?: string;
+  speed?: number;
 }) {
-  const [displayedText, setDisplayedText] = useState('')
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [displayedText, setDisplayedText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     if (currentIndex < text.length) {
       const timer = setTimeout(() => {
-        setDisplayedText(prev => prev + text[currentIndex])
-        setCurrentIndex(prev => prev + 1)
-      }, speed)
+        setDisplayedText((prev) => prev + text[currentIndex]);
+        setCurrentIndex((prev) => prev + 1);
+      }, speed);
 
-      return () => clearTimeout(timer)
+      return () => clearTimeout(timer);
     }
-  }, [currentIndex, text, speed])
+  }, [currentIndex, text, speed]);
 
   return (
     <div className={className}>
@@ -166,5 +166,5 @@ function TypewriterText({
         </motion.span>
       )}
     </div>
-  )
+  );
 }

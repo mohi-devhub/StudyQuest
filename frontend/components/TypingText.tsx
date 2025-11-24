@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 interface TypingTextProps {
-  text: string
-  speed?: number // Characters per second
-  delay?: number // Delay before starting (ms)
-  onComplete?: () => void
-  className?: string
-  showCursor?: boolean
+  text: string;
+  speed?: number; // Characters per second
+  delay?: number; // Delay before starting (ms)
+  onComplete?: () => void;
+  className?: string;
+  showCursor?: boolean;
 }
 
 export default function TypingText({
@@ -17,43 +17,43 @@ export default function TypingText({
   speed = 30, // 30 characters per second = fast, readable
   delay = 0,
   onComplete,
-  className = '',
-  showCursor = true
+  className = "",
+  showCursor = true,
 }: TypingTextProps) {
-  const [displayedText, setDisplayedText] = useState('')
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [isComplete, setIsComplete] = useState(false)
-  const [hasStarted, setHasStarted] = useState(false)
+  const [displayedText, setDisplayedText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
     // Delay before starting
     if (delay > 0 && !hasStarted) {
       const startTimer = setTimeout(() => {
-        setHasStarted(true)
-      }, delay)
-      return () => clearTimeout(startTimer)
+        setHasStarted(true);
+      }, delay);
+      return () => clearTimeout(startTimer);
     } else {
-      setHasStarted(true)
+      setHasStarted(true);
     }
-  }, [delay, hasStarted])
+  }, [delay, hasStarted]);
 
   useEffect(() => {
     if (!hasStarted || isComplete || currentIndex >= text.length) {
       if (currentIndex >= text.length && !isComplete) {
-        setIsComplete(true)
-        onComplete?.()
+        setIsComplete(true);
+        onComplete?.();
       }
-      return
+      return;
     }
 
-    const intervalMs = 1000 / speed
+    const intervalMs = 1000 / speed;
     const timer = setTimeout(() => {
-      setDisplayedText(text.slice(0, currentIndex + 1))
-      setCurrentIndex(currentIndex + 1)
-    }, intervalMs)
+      setDisplayedText(text.slice(0, currentIndex + 1));
+      setCurrentIndex(currentIndex + 1);
+    }, intervalMs);
 
-    return () => clearTimeout(timer)
-  }, [currentIndex, text, speed, isComplete, hasStarted, onComplete])
+    return () => clearTimeout(timer);
+  }, [currentIndex, text, speed, isComplete, hasStarted, onComplete]);
 
   return (
     <span className={`font-mono ${className}`}>
@@ -68,7 +68,7 @@ export default function TypingText({
         </motion.span>
       )}
     </span>
-  )
+  );
 }
 
 /**
@@ -78,14 +78,14 @@ export function TerminalTyping({
   lines,
   speed = 30,
   lineDelay = 100, // Delay between lines
-  className = ''
+  className = "",
 }: {
-  lines: string[]
-  speed?: number
-  lineDelay?: number
-  className?: string
+  lines: string[];
+  speed?: number;
+  lineDelay?: number;
+  className?: string;
 }) {
-  const [currentLine, setCurrentLine] = useState(0)
+  const [currentLine, setCurrentLine] = useState(0);
 
   return (
     <div className={`font-mono ${className}`}>
@@ -99,7 +99,7 @@ export function TerminalTyping({
               showCursor={index === currentLine}
               onComplete={() => {
                 if (index < lines.length - 1) {
-                  setTimeout(() => setCurrentLine(index + 1), lineDelay)
+                  setTimeout(() => setCurrentLine(index + 1), lineDelay);
                 }
               }}
             />
@@ -107,33 +107,33 @@ export function TerminalTyping({
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 /**
  * Blinking cursor effect (static)
  */
-export function BlinkingCursor({ className = '' }: { className?: string }) {
+export function BlinkingCursor({ className = "" }: { className?: string }) {
   return (
     <motion.span
       animate={{ opacity: [1, 0, 1] }}
-      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       className={`inline-block ${className}`}
     >
       _
     </motion.span>
-  )
+  );
 }
 
 /**
  * Terminal prompt with blinking cursor
  */
 export function TerminalPrompt({
-  prefix = '$',
-  children
+  prefix = "$",
+  children,
 }: {
-  prefix?: string
-  children?: React.ReactNode
+  prefix?: string;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="font-mono flex items-center space-x-2">
@@ -141,5 +141,5 @@ export function TerminalPrompt({
       {children}
       <BlinkingCursor />
     </div>
-  )
+  );
 }

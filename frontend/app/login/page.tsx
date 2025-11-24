@@ -1,41 +1,41 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useAuth } from '@/lib/useAuth'
-import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
-import ClientOnly from '@/components/ClientOnly'
+import { useState } from "react";
+import { useAuth } from "@/lib/useAuth";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import ClientOnly from "@/components/ClientOnly";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { signIn } = useAuth()
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { signIn } = useAuth();
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     try {
-      await signIn(email, password)
+      await signIn(email, password);
       // Use replace instead of push to avoid back button issues
       // Redirect to root (dashboard) after successful login
-      router.replace('/')
+      router.replace("/");
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in')
+      setError(err.message || "Failed to sign in");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const fillTestCredentials = () => {
-    setEmail('test@studyquest.dev')
-    setPassword('testuser123')
-  }
+    setEmail("test@studyquest.dev");
+    setPassword("testuser123");
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
@@ -129,7 +129,7 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-white text-black px-6 py-3 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono font-bold"
             >
-              {loading ? 'AUTHENTICATING...' : 'LOGIN >'}
+              {loading ? "AUTHENTICATING..." : "LOGIN >"}
             </button>
           </form>
 
@@ -153,7 +153,9 @@ export default function LoginPage() {
           transition={{ delay: 0.5 }}
           className="mt-6 border border-gray-700 p-6 bg-gray-950"
         >
-          <div className="text-xs text-gray-500 mb-3">// TEST_USER_CREDENTIALS</div>
+          <div className="text-xs text-gray-500 mb-3">
+            // TEST_USER_CREDENTIALS
+          </div>
           <div className="space-y-2 text-sm font-mono">
             <div className="flex justify-between">
               <span className="text-gray-400">Email:</span>
@@ -184,5 +186,5 @@ export default function LoginPage() {
         </motion.div>
       </motion.div>
     </div>
-  )
+  );
 }

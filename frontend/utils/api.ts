@@ -1,39 +1,53 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { supabase } from "@/lib/supabase";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 /**
  * Get full API URL
  */
 export function getApiUrl(path: string): string {
   // Remove leading slash if present
-  const cleanPath = path.startsWith('/') ? path.slice(1) : path
-  return `${API_BASE}/${cleanPath}`
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  return `${API_BASE}/${cleanPath}`;
 }
 
 /**
  * Create authorization headers with token
  */
-export function createAuthHeaders(token: string): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+export async function getAuthHeaders(isJson = true): Promise<HeadersInit> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  const headers: HeadersInit = {};
+
+  if (isJson) {
+    headers["Content-Type"] = "application/json";
   }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 /**
  * Handle API response errors
  */
 export async function handleApiError(response: Response): Promise<never> {
-  let errorMessage = 'An error occurred'
-  
+  let errorMessage = "An error occurred";
+
   try {
-    const data = await response.json()
-    errorMessage = data.detail?.message || data.message || data.detail || errorMessage
+    const data = await response.json();
+    errorMessage =
+      data.detail?.message || data.message || data.detail || errorMessage;
   } catch {
     // If response is not JSON, use status text
-    errorMessage = response.statusText || errorMessage
+    errorMessage = response.statusText || errorMessage;
   }
 
-  throw new Error(errorMessage)
+  throw new Error(errorMessage);
 }
 
 /**
@@ -41,57 +55,36 @@ export async function handleApiError(response: Response): Promise<never> {
  */
 export async function fetchApi<T>(
   url: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(url, options)
+  const response = await fetch(url, options);
 
   if (!response.ok) {
-    await handleApiError(response)
+    await handleApiError(response);
   }
 
-  return response.json()
+  return response.json();
 }
 
 /**
  * POST request helper
  */
-export async function postApi<T>(
-  path: string,
-  body: any,
-  token?: string
-): Promise<T> {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  }
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
+export async function postApi<T>(path: string, body: any): Promise<T> {
   return fetchApi<T>(getApiUrl(path), {
-    method: 'POST',
-    headers,
+    method: "POST",
+    headers: await getAuthHeaders(),
     body: JSON.stringify(body),
-  })
+  });
 }
 
 /**
  * GET request helper
  */
-export async function getApi<T>(
-  path: string,
-  token?: string
-): Promise<T> {
-  const headers: HeadersInit = {}
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
+export async function getApi<T>(path: string): Promise<T> {
   return fetchApi<T>(getApiUrl(path), {
-    method: 'GET',
-    headers,
-  })
+    method: "GET",
+    headers: await getAuthHeaders(false),
+  });
 }
 
 /**
@@ -100,19 +93,12 @@ export async function getApi<T>(
 export async function uploadFile<T>(
   path: string,
   formData: FormData,
-  token?: string
 ): Promise<T> {
-  const headers: HeadersInit = {}
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
   return fetchApi<T>(getApiUrl(path), {
-    method: 'POST',
-    headers,
+    method: "POST",
+    headers: await getAuthHeaders(false),
     body: formData,
-  })
+  });
 }
 
 /**
@@ -120,18 +106,18 @@ export async function uploadFile<T>(
  * Progress loads immediately, recommendations load separately
  */
 export async function fetchDashboardData(userId: string): Promise<{
-  progress: any
-  recommendations: any
+  progress: any;
+  recommendations: any;
 }> {
   if (!userId) {
-    throw new Error('User ID is required to fetch dashboard data')
+    throw new Error("User ID is required to fetch dashboard data");
   }
 
   // Fetch progress immediately (fast)
-  const progress = await getApi(`progress/v2/${userId}`)
+  const progress = await getApi(`progress/v2/${userId}`);
 
   // Return progress immediately, recommendations will be null
-  return { progress, recommendations: null }
+  return { progress, recommendations: null };
 }
 
 /**
@@ -139,8 +125,8 @@ export async function fetchDashboardData(userId: string): Promise<{
  */
 export async function fetchRecommendations(userId: string): Promise<any> {
   if (!userId) {
-    throw new Error('User ID is required to fetch recommendations')
+    throw new Error("User ID is required to fetch recommendations");
   }
 
-  return getApi(`study/recommendations?user_id=${userId}`)
+  return getApi(`study/recommendations?user_id=${userId}`);
 }

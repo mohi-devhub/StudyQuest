@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
 interface UseRealtimeXPOptions {
-  userId: string
-  onXPGain?: (xp: number, source: string, topic?: string) => void
-  onLevelUp?: (newLevel: number) => void
-  onProgressUpdate?: (topic: string, newAvgScore: number) => void
-  onBadgeUnlock?: (badge: any) => void
+  userId: string;
+  onXPGain?: (xp: number, source: string, topic?: string) => void;
+  onLevelUp?: (newLevel: number) => void;
+  onProgressUpdate?: (topic: string, newAvgScore: number) => void;
+  onBadgeUnlock?: (badge: any) => void;
 }
 
 export function useRealtimeXP({
@@ -15,31 +15,31 @@ export function useRealtimeXP({
   onProgressUpdate,
   onBadgeUnlock,
 }: UseRealtimeXPOptions) {
-  const [isConnected, setIsConnected] = useState(false)
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId) return;
 
     // For now, just set connected to true
     // In the future, this could connect to a WebSocket or Supabase Realtime
-    setIsConnected(true)
+    setIsConnected(true);
 
     return () => {
-      setIsConnected(false)
-    }
-  }, [userId])
+      setIsConnected(false);
+    };
+  }, [userId]);
 
-  return { isConnected }
+  return { isConnected };
 }
 
 export function useRealtimeLeaderboard() {
-  const [isConnected, setIsConnected] = useState(true)
+  const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
     // For now, just set connected to true
     // In the future, this could connect to a WebSocket or Supabase Realtime for live leaderboard updates
-    setIsConnected(true)
-  }, [])
+    setIsConnected(true);
+  }, []);
 
-  return { isConnected }
+  return { isConnected };
 }

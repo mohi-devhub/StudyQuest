@@ -1,66 +1,67 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { createLogger } from '@/lib/logger'
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { createLogger } from "@/lib/logger";
 
-const logger = createLogger('CoachFeedbackPanel')
+const logger = createLogger("CoachFeedbackPanel");
 interface CoachFeedback {
-  success: boolean
-  user_id: string
+  success: boolean;
+  user_id: string;
   performance_summary: {
-    average_score: number
-    total_quizzes: number
-    level: number
-    total_xp: number
-    weak_topics_count: number
-    strong_topics_count: number
-  }
+    average_score: number;
+    total_quizzes: number;
+    level: number;
+    total_xp: number;
+    weak_topics_count: number;
+    strong_topics_count: number;
+  };
   weak_topics: Array<{
-    topic: string
-    score: number
-    attempts: number
-    recommendation: string
-  }>
-  recommended_topics: string[]
-  motivational_messages: string[]
-  next_steps: string[]
+    topic: string;
+    score: number;
+    attempts: number;
+    recommendation: string;
+  }>;
+  recommended_topics: string[];
+  motivational_messages: string[];
+  next_steps: string[];
 }
 
 interface CoachFeedbackProps {
-  userId: string
+  userId: string;
 }
 
 export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
-  const [feedback, setFeedback] = useState<CoachFeedback | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<CoachFeedback | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFeedback()
-  }, [userId])
+    fetchFeedback();
+  }, [userId]);
 
   const fetchFeedback = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const response = await fetch(`${API_BASE}/coach/feedback/${userId}`)
-      
+      const API_BASE =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE}/coach/feedback/${userId}`);
+
       if (!response.ok) {
-        throw new Error('Failed to fetch coach feedback')
+        throw new Error("Failed to fetch coach feedback");
       }
 
-      const data = await response.json()
-      setFeedback(data)
+      const data = await response.json();
+      setFeedback(data);
     } catch (err: any) {
-      setError(err.message)
-      logger.error('Coach feedback error', { userId, error: err.message })
+      setError(err.message);
+      logger.error("Coach feedback error", { userId, error: err.message });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -69,7 +70,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
           <div className="animate-pulse">// LOADING COACH FEEDBACK...</div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error || !feedback) {
@@ -79,7 +80,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
           // Coach feedback temporarily unavailable
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -169,7 +170,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
                     className="text-white font-mono flex items-center"
                   >
                     <span className="text-gray-600 mr-3">
-                      {(index + 1).toString().padStart(2, '0')}.
+                      {(index + 1).toString().padStart(2, "0")}.
                     </span>
                     <span className="hover:text-gray-300 cursor-pointer transition-colors">
                       {topic}
@@ -184,9 +185,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
         {/* Next Steps */}
         {feedback.next_steps.length > 0 && (
           <div>
-            <div className="text-sm text-gray-500 mb-3">
-              // NEXT_STEPS
-            </div>
+            <div className="text-sm text-gray-500 mb-3">// NEXT_STEPS</div>
             <div className="border border-gray-700 p-4 bg-black">
               <div className="space-y-2">
                 {feedback.next_steps.map((step, index) => (
@@ -209,18 +208,16 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
         {/* Performance Summary */}
         <div className="border-t border-gray-800 pt-4 mt-4">
           <div className="text-xs text-gray-600 space-y-1 font-mono">
+            <div>$ coach.analyze(user_id=&quot;{feedback.user_id}&quot;)</div>
             <div>
-              $ coach.analyze(user_id=&quot;{feedback.user_id}&quot;)
-            </div>
-            <div>
-              → avg_score: {feedback.performance_summary.average_score}% | 
-              quizzes: {feedback.performance_summary.total_quizzes} | 
-              weak: {feedback.performance_summary.weak_topics_count} | 
-              strong: {feedback.performance_summary.strong_topics_count}
+              → avg_score: {feedback.performance_summary.average_score}% |
+              quizzes: {feedback.performance_summary.total_quizzes} | weak:{" "}
+              {feedback.performance_summary.weak_topics_count} | strong:{" "}
+              {feedback.performance_summary.strong_topics_count}
             </div>
           </div>
         </div>
       </div>
     </motion.div>
-  )
+  );
 }

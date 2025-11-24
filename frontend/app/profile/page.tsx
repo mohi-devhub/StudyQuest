@@ -1,86 +1,86 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/useAuth'
-import { supabase } from '@/lib/supabase'
-import { createLogger } from '@/lib/logger'
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/useAuth";
+import { supabase } from "@/lib/supabase";
+import { createLogger } from "@/lib/logger";
 
-const logger = createLogger('ProfilePage')
+const logger = createLogger("ProfilePage");
 
 interface UserProfile {
-  username: string
-  email: string
-  total_xp: number
-  level: number
-  created_at: string
+  username: string;
+  email: string;
+  total_xp: number;
+  level: number;
+  created_at: string;
 }
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const { userId, user, signOut } = useAuth()
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loggingOut, setLoggingOut] = useState(false)
+  const router = useRouter();
+  const { userId, user, signOut } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (!userId) {
-      router.push('/login')
-      return
+      router.push("/login");
+      return;
     }
-    fetchProfile()
-  }, [userId, router])
+    fetchProfile();
+  }, [userId, router]);
 
   const fetchProfile = async () => {
-    if (!userId) return
+    if (!userId) return;
 
     try {
-      setLoading(true)
-      
+      setLoading(true);
+
       // Fetch user data from users table
       const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('username, total_xp, level, created_at')
-        .eq('user_id', userId)
-        .single()
+        .from("users")
+        .select("username, total_xp, level, created_at")
+        .eq("user_id", userId)
+        .single();
 
-      if (userError) throw userError
+      if (userError) throw userError;
 
       setProfile({
-        username: userData?.username || 'Unknown',
-        email: user?.email || 'No email',
+        username: userData?.username || "Unknown",
+        email: user?.email || "No email",
         total_xp: userData?.total_xp || 0,
         level: userData?.level || 1,
-        created_at: userData?.created_at || new Date().toISOString()
-      })
+        created_at: userData?.created_at || new Date().toISOString(),
+      });
     } catch (error) {
-      logger.error('Error fetching profile', { userId, error: String(error) })
+      logger.error("Error fetching profile", { userId, error: String(error) });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleLogout = async () => {
-    setLoggingOut(true)
+    setLoggingOut(true);
     try {
-      await signOut()
-      router.push('/login')
+      await signOut();
+      router.push("/login");
     } catch (error) {
-      logger.error('Logout error', { userId, error: String(error) })
-      setLoggingOut(false)
+      logger.error("Logout error", { userId, error: String(error) });
+      setLoggingOut(false);
     }
-  }
+  };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })
-  }
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   if (loading) {
     return (
@@ -95,7 +95,7 @@ export default function ProfilePage() {
           </div>
         </motion.div>
       </div>
-    )
+    );
   }
 
   return (
@@ -131,12 +131,16 @@ export default function ProfilePage() {
           <div className="p-6 border-b border-terminal-gray">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <div className="text-sm text-terminal-gray mb-1">// USERNAME</div>
+                <div className="text-sm text-terminal-gray mb-1">
+                  // USERNAME
+                </div>
                 <div className="text-2xl font-bold">{profile?.username}</div>
               </div>
               <div className="border border-terminal-white px-4 py-2">
                 <div className="text-terminal-gray text-xs">LEVEL</div>
-                <div className="text-2xl font-bold text-center">{profile?.level}</div>
+                <div className="text-2xl font-bold text-center">
+                  {profile?.level}
+                </div>
               </div>
             </div>
 
@@ -147,13 +151,21 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <div className="text-sm text-terminal-gray mb-1">// TOTAL XP</div>
-                <div className="text-lg font-bold">{profile?.total_xp.toLocaleString()} XP</div>
+                <div className="text-sm text-terminal-gray mb-1">
+                  // TOTAL XP
+                </div>
+                <div className="text-lg font-bold">
+                  {profile?.total_xp.toLocaleString()} XP
+                </div>
               </div>
 
               <div>
-                <div className="text-sm text-terminal-gray mb-1">// MEMBER SINCE</div>
-                <div className="text-lg">{profile && formatDate(profile.created_at)}</div>
+                <div className="text-sm text-terminal-gray mb-1">
+                  // MEMBER SINCE
+                </div>
+                <div className="text-lg">
+                  {profile && formatDate(profile.created_at)}
+                </div>
               </div>
             </div>
           </div>
@@ -161,17 +173,23 @@ export default function ProfilePage() {
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-6 border-b border-terminal-gray">
             <div className="border border-terminal-gray p-4">
-              <div className="text-terminal-gray text-xs mb-2">XP TO NEXT LEVEL</div>
+              <div className="text-terminal-gray text-xs mb-2">
+                XP TO NEXT LEVEL
+              </div>
               <div className="text-xl font-bold">
-                {profile ? (profile.level * 100) - profile.total_xp : 0}
+                {profile ? profile.level * 100 - profile.total_xp : 0}
               </div>
             </div>
             <div className="border border-terminal-gray p-4">
-              <div className="text-terminal-gray text-xs mb-2">CURRENT LEVEL</div>
+              <div className="text-terminal-gray text-xs mb-2">
+                CURRENT LEVEL
+              </div>
               <div className="text-xl font-bold">{profile?.level}</div>
             </div>
             <div className="border border-terminal-gray p-4 col-span-2 md:col-span-1">
-              <div className="text-terminal-gray text-xs mb-2">ACCOUNT STATUS</div>
+              <div className="text-terminal-gray text-xs mb-2">
+                ACCOUNT STATUS
+              </div>
               <div className="text-xl font-bold">ACTIVE</div>
             </div>
           </div>
@@ -183,7 +201,7 @@ export default function ProfilePage() {
               disabled={loggingOut}
               className="w-full bg-terminal-black text-terminal-white border border-terminal-white px-6 py-3 hover:bg-terminal-white hover:text-terminal-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loggingOut ? 'LOGGING OUT...' : '> LOGOUT'}
+              {loggingOut ? "LOGGING OUT..." : "> LOGOUT"}
             </button>
           </div>
         </motion.div>
@@ -214,5 +232,5 @@ export default function ProfilePage() {
         </motion.div>
       </div>
     </div>
-  )
+  );
 }

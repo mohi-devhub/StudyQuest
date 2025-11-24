@@ -1,59 +1,59 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useAuth } from '@/lib/useAuth'
-import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
+import { useState } from "react";
+import { useAuth } from "@/lib/useAuth";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 export default function SignupPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [username, setUsername] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const { signUp } = useAuth()
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const { signUp } = useAuth();
+  const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     // Validation
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      setLoading(false)
-      return
+      setError("Password must be at least 6 characters");
+      setLoading(false);
+      return;
     }
 
     if (!username.trim()) {
-      setError('Username is required')
-      setLoading(false)
-      return
+      setError("Username is required");
+      setLoading(false);
+      return;
     }
 
     try {
-      await signUp(email, password, username)
-      setSuccess(true)
+      await signUp(email, password, username);
+      setSuccess(true);
       // Redirect to dashboard after successful signup
       setTimeout(() => {
-        router.replace('/')
-      }, 2000)
+        router.replace("/");
+      }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Failed to create account')
+      setError(err.message || "Failed to create account");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (success) {
     return (
@@ -68,12 +68,10 @@ export default function SignupPage() {
           <p className="text-gray-400 mb-6">
             Your StudyQuest account has been created successfully.
           </p>
-          <p className="text-sm text-gray-500">
-            Redirecting to dashboard...
-          </p>
+          <p className="text-sm text-gray-500">Redirecting to dashboard...</p>
         </motion.div>
       </div>
-    )
+    );
   }
 
   return (
@@ -175,9 +173,7 @@ export default function SignupPage() {
                 disabled={loading}
                 minLength={6}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Minimum 6 characters
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
             </div>
 
             <div>
@@ -200,7 +196,7 @@ export default function SignupPage() {
               disabled={loading}
               className="w-full bg-white text-black px-6 py-3 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono font-bold"
             >
-              {loading ? 'CREATING_ACCOUNT...' : 'CREATE_ACCOUNT >'}
+              {loading ? "CREATING_ACCOUNT..." : "CREATE_ACCOUNT >"}
             </button>
           </form>
 
@@ -246,5 +242,5 @@ export default function SignupPage() {
         </motion.div>
       </motion.div>
     </div>
-  )
+  );
 }

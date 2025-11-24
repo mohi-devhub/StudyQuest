@@ -1,51 +1,55 @@
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { QuizDifficulty } from '@/types/enums'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { QuizDifficulty } from "@/types/enums";
 
 interface Recommendation {
-  topic: string
-  reason: string
-  priority: string
-  category: string
-  current_score: number | null
-  recommended_difficulty: string
-  estimated_xp_gain: number
-  urgency: string
+  topic: string;
+  reason: string;
+  priority: string;
+  category: string;
+  current_score: number | null;
+  recommended_difficulty: string;
+  estimated_xp_gain: number;
+  urgency: string;
 }
 
 interface RecommendedCardProps {
-  recommendation: Recommendation
+  recommendation: Recommendation;
 }
 
-export default function RecommendedCard({ recommendation }: RecommendedCardProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const router = useRouter()
+export default function RecommendedCard({
+  recommendation,
+}: RecommendedCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const router = useRouter();
 
   const handleStartQuiz = () => {
-    router.push(`/quiz?topic=${encodeURIComponent(recommendation.topic)}&difficulty=${recommendation.recommended_difficulty}`)
-  }
+    router.push(
+      `/quiz?topic=${encodeURIComponent(recommendation.topic)}&difficulty=${recommendation.recommended_difficulty}`,
+    );
+  };
 
   const getPriorityBorder = (priority: string) => {
     switch (priority.toLowerCase()) {
-      case 'high':
-        return 'border-2'
-      case 'medium':
-        return 'border'
+      case "high":
+        return "border-2";
+      case "medium":
+        return "border";
       default:
-        return 'border'
+        return "border";
     }
-  }
+  };
 
   const getDifficultyLabel = (difficulty: string) => {
     const labels: { [key in QuizDifficulty]: string } = {
-      [QuizDifficulty.EASY]: '█░░░',
-      [QuizDifficulty.MEDIUM]: '██░░',
-      [QuizDifficulty.HARD]: '███░',
-      [QuizDifficulty.EXPERT]: '████',
-    }
-    return labels[difficulty.toLowerCase() as QuizDifficulty] || '░░░░'
-  }
+      [QuizDifficulty.EASY]: "█░░░",
+      [QuizDifficulty.MEDIUM]: "██░░",
+      [QuizDifficulty.HARD]: "███░",
+      [QuizDifficulty.EXPERT]: "████",
+    };
+    return labels[difficulty.toLowerCase() as QuizDifficulty] || "░░░░";
+  };
 
   return (
     <motion.div
@@ -78,10 +82,12 @@ export default function RecommendedCard({ recommendation }: RecommendedCardProps
           <div>
             <div className="text-terminal-gray text-xs mb-1">CURRENT_SCORE</div>
             <div className="text-xl font-bold">
-              {recommendation.current_score !== null ? `${recommendation.current_score}%` : 'NEW'}
+              {recommendation.current_score !== null
+                ? `${recommendation.current_score}%`
+                : "NEW"}
             </div>
           </div>
-          
+
           <div>
             <div className="text-terminal-gray text-xs mb-1">DIFFICULTY</div>
             <div className="text-xl font-bold font-mono">
@@ -98,9 +104,7 @@ export default function RecommendedCard({ recommendation }: RecommendedCardProps
 
           <div>
             <div className="text-terminal-gray text-xs mb-1">URGENCY</div>
-            <div className="text-sm">
-              {recommendation.urgency}
-            </div>
+            <div className="text-sm">{recommendation.urgency}</div>
           </div>
         </div>
 
@@ -119,5 +123,5 @@ export default function RecommendedCard({ recommendation }: RecommendedCardProps
       <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-terminal-white opacity-50" />
       <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-terminal-white opacity-50" />
     </motion.div>
-  )
+  );
 }

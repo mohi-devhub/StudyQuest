@@ -1,110 +1,120 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/useAuth'
-import { supabase } from '@/lib/supabase'
-import { createLogger } from '@/lib/logger'
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/useAuth";
+import { supabase } from "@/lib/supabase";
+import { createLogger } from "@/lib/logger";
 
-const logger = createLogger('StudyPage')
+const logger = createLogger("StudyPage");
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface StudyNotes {
-  summary: string
-  key_points: string[]
-  examples: string[]
-  tips: string[]
+  summary: string;
+  key_points: string[];
+  examples: string[];
+  tips: string[];
 }
 
 export default function StudyPage() {
-  const router = useRouter()
-  const { userId } = useAuth()
-  const [topic, setTopic] = useState('')
-  const [notes, setNotes] = useState<StudyNotes | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [generationTime, setGenerationTime] = useState<number | null>(null)
+  const router = useRouter();
+  const { userId } = useAuth();
+  const [topic, setTopic] = useState("");
+  const [notes, setNotes] = useState<StudyNotes | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [generationTime, setGenerationTime] = useState<number | null>(null);
 
   const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (!topic.trim()) {
-      setError('Please enter a topic')
-      return
+      setError("Please enter a topic");
+      return;
     }
 
     if (topic.length > 50) {
-      setError('Topic must be 50 characters or less')
-      return
+      setError("Topic must be 50 characters or less");
+      return;
     }
 
-    setLoading(true)
-    setError(null)
-    setNotes(null)
-    
-    const startTime = Date.now()
+    setLoading(true);
+    setError(null);
+    setNotes(null);
+
+    const startTime = Date.now();
 
     try {
       // Get the session token
-      const { data: { session } } = await supabase.auth.getSession()
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!session?.access_token) {
-        setError('Authentication required. Please log in again.')
-        return
+        setError("Authentication required. Please log in again.");
+        return;
       }
 
       const response = await fetch(`${API_URL}/study`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           topic: topic.trim(),
           user_id: userId,
-          use_cache: true
-        })
-      })
+          use_cache: true,
+        }),
+      });
 
-      const endTime = Date.now()
-      setGenerationTime((endTime - startTime) / 1000)
+      const endTime = Date.now();
+      setGenerationTime((endTime - startTime) / 1000);
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (response.ok) {
-        setNotes(data.notes)
-        
+        setNotes(data.notes);
+
         // Save study session to database for later use in quiz
         if (userId && data.notes) {
           try {
-            await supabase.from('study_sessions').insert({
+            await supabase.from("study_sessions").insert({
               user_id: userId,
               topic: topic.trim(),
               summary: data.notes.summary,
               key_points: data.notes.key_points || [],
-              quiz_questions: data.quiz || []
-            })
+              quiz_questions: data.quiz || [],
+            });
           } catch (saveErr) {
-            logger.warn('Failed to save study session', { userId, topic, error: String(saveErr) })
+            logger.warn("Failed to save study session", {
+              userId,
+              topic,
+              error: String(saveErr),
+            });
             // Don't show error to user, this is optional
           }
         }
       } else {
-        setError(data.detail?.message || 'Failed to generate study notes')
+        setError(data.detail?.message || "Failed to generate study notes");
       }
     } catch (err) {
-      setError('Network error. Please check if backend is running.')
-      logger.error('Study generation error', { userId, topic, error: String(err) })
+      setError("Network error. Please check if backend is running.");
+      logger.error("Study generation error", {
+        userId,
+        topic,
+        error: String(err),
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleTakeQuiz = () => {
-    router.push(`/quiz?topic=${encodeURIComponent(topic)}`)
-  }
+    router.push(`/quiz?topic=${encodeURIComponent(topic)}`);
+  };
 
   return (
     <div className="min-h-screen bg-black text-white p-6 md:p-8 font-mono">
@@ -140,7 +150,7 @@ export default function StudyPage() {
             maxLength={50}
             disabled={loading}
           />
-          
+
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-600">
               {topic.length}/50 characters
@@ -150,7 +160,7 @@ export default function StudyPage() {
               disabled={loading || !topic.trim()}
               className="bg-white text-black px-6 py-3 font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'GENERATING...' : 'GENERATE_NOTES()'}
+              {loading ? "GENERATING..." : "GENERATE_NOTES()"}
             </button>
           </div>
         </motion.form>
@@ -195,8 +205,9 @@ export default function StudyPage() {
             {/* Generation Time */}
             {generationTime && (
               <div className="border border-gray-700 p-4 text-sm text-gray-400">
-                <span className="font-bold">Generation Time:</span> {generationTime.toFixed(2)}s
-                {generationTime < 10 ? ' ✓' : ' ⚠️ (slower than expected)'}
+                <span className="font-bold">Generation Time:</span>{" "}
+                {generationTime.toFixed(2)}s
+                {generationTime < 10 ? " ✓" : " ⚠️ (slower than expected)"}
               </div>
             )}
 
@@ -219,7 +230,9 @@ export default function StudyPage() {
                       transition={{ delay: 0.1 + index * 0.05 }}
                       className="flex gap-3"
                     >
-                      <span className="text-gray-600 flex-shrink-0">[{index + 1}]</span>
+                      <span className="text-gray-600 flex-shrink-0">
+                        [{index + 1}]
+                      </span>
                       <span className="text-gray-300">{point}</span>
                     </motion.li>
                   ))}
@@ -240,7 +253,9 @@ export default function StudyPage() {
                       transition={{ delay: 0.2 + index * 0.05 }}
                       className="border border-gray-700 p-4 bg-gray-900"
                     >
-                      <span className="text-sm text-gray-500">Example {index + 1}:</span>
+                      <span className="text-sm text-gray-500">
+                        Example {index + 1}:
+                      </span>
                       <p className="text-gray-300 mt-2">{example}</p>
                     </motion.div>
                   ))}
@@ -279,9 +294,9 @@ export default function StudyPage() {
 
               <button
                 onClick={() => {
-                  setNotes(null)
-                  setTopic('')
-                  setGenerationTime(null)
+                  setNotes(null);
+                  setTopic("");
+                  setGenerationTime(null);
                 }}
                 className="w-full border border-gray-600 px-6 py-3 hover:bg-gray-900 transition-colors"
               >
@@ -310,13 +325,18 @@ export default function StudyPage() {
               Enter any topic above to generate AI-powered study notes.
             </p>
             <div className="text-xs text-gray-600 space-y-1">
-              <p>✓ Topics can be any subject (science, history, programming, etc.)</p>
+              <p>
+                ✓ Topics can be any subject (science, history, programming,
+                etc.)
+              </p>
               <p>✓ Notes are generated using AI in ~5-10 seconds</p>
-              <p>✓ After studying, you can take a quiz to test your knowledge</p>
+              <p>
+                ✓ After studying, you can take a quiz to test your knowledge
+              </p>
             </div>
           </motion.div>
         )}
       </div>
     </div>
-  )
+  );
 }

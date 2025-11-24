@@ -15,7 +15,7 @@ interface LogEntry {
   context?: LogContext;
 }
 
-type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 
 class StructuredLogger {
   private name: string;
@@ -57,7 +57,7 @@ class StructuredLogger {
     }
 
     // In production, send to logging service
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       this.sendToLoggingService(logEntry);
     } else {
       // Development: pretty print to console
@@ -70,18 +70,18 @@ class StructuredLogger {
    */
   private logToConsole(level: LogLevel, logEntry: LogEntry): void {
     const formattedLog = JSON.stringify(logEntry, null, 2);
-    
+
     switch (level) {
-      case 'DEBUG':
+      case "DEBUG":
         console.debug(formattedLog);
         break;
-      case 'INFO':
+      case "INFO":
         console.info(formattedLog);
         break;
-      case 'WARN':
+      case "WARN":
         console.warn(formattedLog);
         break;
-      case 'ERROR':
+      case "ERROR":
         console.error(formattedLog);
         break;
     }
@@ -97,58 +97,58 @@ class StructuredLogger {
     // - Datadog: datadogLogs.logger.log(logEntry.message, logEntry)
     // - LogRocket: LogRocket.log(logEntry)
     // - Sentry: Sentry.captureMessage(logEntry.message, { extra: logEntry.context })
-    
+
     // For now, still log to console in production
     console.log(JSON.stringify(logEntry));
   }
 
   /**
    * Log debug message with optional context
-   * 
+   *
    * @param message - Debug message
    * @param context - Additional context (e.g., { userId: "123", page: "quiz" })
    */
   debug(message: string, context?: LogContext): void {
-    this.log('DEBUG', message, context);
+    this.log("DEBUG", message, context);
   }
 
   /**
    * Log info message with optional context
-   * 
+   *
    * @param message - Info message
    * @param context - Additional context (e.g., { userId: "123", action: "login" })
    */
   info(message: string, context?: LogContext): void {
-    this.log('INFO', message, context);
+    this.log("INFO", message, context);
   }
 
   /**
    * Log warning message with optional context
-   * 
+   *
    * @param message - Warning message
    * @param context - Additional context (e.g., { userId: "123", issue: "slow_response" })
    */
   warn(message: string, context?: LogContext): void {
-    this.log('WARN', message, context);
+    this.log("WARN", message, context);
   }
 
   /**
    * Log error message with optional context
-   * 
+   *
    * @param message - Error message
    * @param context - Additional context (e.g., { userId: "123", error: "api_timeout" })
    */
   error(message: string, context?: LogContext): void {
-    this.log('ERROR', message, context);
+    this.log("ERROR", message, context);
   }
 }
 
 /**
  * Create a structured logger instance
- * 
+ *
  * @param name - Logger name (typically the component or module name)
  * @returns StructuredLogger instance
- * 
+ *
  * @example
  * const logger = createLogger('QuizPage');
  * logger.info('Quiz started', { userId: '123', topic: 'Python' });
@@ -160,4 +160,4 @@ export function createLogger(name: string): StructuredLogger {
 /**
  * Default logger instance for general use
  */
-export const logger = createLogger('App');
+export const logger = createLogger("App");

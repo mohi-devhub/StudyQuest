@@ -1,102 +1,111 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
-import { useAuth } from '@/lib/useAuth'
-import { useRouter } from 'next/navigation'
-import { createLogger } from '@/lib/logger'
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { useAuth } from "@/lib/useAuth";
+import { useRouter } from "next/navigation";
+import { createLogger } from "@/lib/logger";
 
-const logger = createLogger('AchievementsPage')
+const logger = createLogger("AchievementsPage");
 
 interface Badge {
-  id: string
-  badge_key: string
-  name: string
-  description: string
-  symbol: string
-  tier: number
-  category: string
-  unlocked_at: string
-  seen: boolean
-  metadata: any
+  id: string;
+  badge_key: string;
+  name: string;
+  description: string;
+  symbol: string;
+  tier: number;
+  category: string;
+  unlocked_at: string;
+  seen: boolean;
+  metadata: any;
 }
 
 interface Achievement {
-  total_badges: number
-  bronze_badges: number
-  silver_badges: number
-  gold_badges: number
-  platinum_badges: number
-  total_milestones: number
-  latest_badge_at: string | null
+  total_badges: number;
+  bronze_badges: number;
+  silver_badges: number;
+  gold_badges: number;
+  platinum_badges: number;
+  total_milestones: number;
+  latest_badge_at: string | null;
 }
 
 export default function AchievementsPage() {
-  const { userId, loading: authLoading } = useAuth()
-  const router = useRouter()
-  const [badges, setBadges] = useState<Badge[]>([])
-  const [summary, setSummary] = useState<Achievement | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { userId, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [summary, setSummary] = useState<Achievement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !userId) {
-      router.push('/login')
+      router.push("/login");
     }
-  }, [authLoading, userId, router])
+  }, [authLoading, userId, router]);
 
   useEffect(() => {
     if (userId) {
-      fetchAchievements()
+      fetchAchievements();
     }
-  }, [userId])
+  }, [userId]);
 
   const fetchAchievements = async () => {
-    if (!userId) return
-    
+    if (!userId) return;
+
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
       // Fetch user badges
-      const badgesRes = await fetch(`/api/achievements/user/${userId}/badges`)
-      if (!badgesRes.ok) throw new Error('Failed to fetch badges')
-      const badgesData = await badgesRes.json()
+      const badgesRes = await fetch(`/api/achievements/user/${userId}/badges`);
+      if (!badgesRes.ok) throw new Error("Failed to fetch badges");
+      const badgesData = await badgesRes.json();
 
       // Fetch summary
-      const summaryRes = await fetch(`/api/achievements/user/${userId}/summary`)
-      if (!summaryRes.ok) throw new Error('Failed to fetch summary')
-      const summaryData = await summaryRes.json()
+      const summaryRes = await fetch(
+        `/api/achievements/user/${userId}/summary`,
+      );
+      if (!summaryRes.ok) throw new Error("Failed to fetch summary");
+      const summaryData = await summaryRes.json();
 
-      setBadges(badgesData.badges || [])
-      setSummary(summaryData)
+      setBadges(badgesData.badges || []);
+      setSummary(summaryData);
     } catch (err: any) {
-      setError(err.message)
-      logger.error('Achievements error', { userId, error: err.message })
+      setError(err.message);
+      logger.error("Achievements error", { userId, error: err.message });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const getTierName = (tier: number): string => {
     switch (tier) {
-      case 1: return 'BRONZE'
-      case 2: return 'SILVER'
-      case 3: return 'GOLD'
-      case 4: return 'PLATINUM'
-      default: return 'UNKNOWN'
+      case 1:
+        return "BRONZE";
+      case 2:
+        return "SILVER";
+      case 3:
+        return "GOLD";
+      case 4:
+        return "PLATINUM";
+      default:
+        return "UNKNOWN";
     }
-  }
+  };
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-GB', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
-    }).toUpperCase()
-  }
+    const date = new Date(dateString);
+    return date
+      .toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+      .toUpperCase();
+  };
 
   if (loading) {
     return (
@@ -114,7 +123,7 @@ export default function AchievementsPage() {
           </div>
         </motion.div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -135,7 +144,7 @@ export default function AchievementsPage() {
           </button>
         </motion.div>
       </div>
-    )
+    );
   }
 
   return (
@@ -173,23 +182,33 @@ export default function AchievementsPage() {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{summary.total_badges}</div>
+                <div className="text-3xl font-bold text-white">
+                  {summary.total_badges}
+                </div>
                 <div className="text-sm text-gray-500 mt-1">TOTAL</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{summary.bronze_badges}</div>
+                <div className="text-3xl font-bold text-white">
+                  {summary.bronze_badges}
+                </div>
                 <div className="text-sm text-gray-500 mt-1">BRONZE</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{summary.silver_badges}</div>
+                <div className="text-3xl font-bold text-white">
+                  {summary.silver_badges}
+                </div>
                 <div className="text-sm text-gray-500 mt-1">SILVER</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{summary.gold_badges}</div>
+                <div className="text-3xl font-bold text-white">
+                  {summary.gold_badges}
+                </div>
                 <div className="text-sm text-gray-500 mt-1">GOLD</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{summary.platinum_badges}</div>
+                <div className="text-3xl font-bold text-white">
+                  {summary.platinum_badges}
+                </div>
                 <div className="text-sm text-gray-500 mt-1">PLATINUM</div>
               </div>
             </div>
@@ -204,13 +223,17 @@ export default function AchievementsPage() {
           className="border border-gray-500 mb-8"
         >
           <div className="bg-white text-black px-6 py-3">
-            <h2 className="text-xl font-bold">UNLOCKED BADGES ({badges.length})</h2>
+            <h2 className="text-xl font-bold">
+              UNLOCKED BADGES ({badges.length})
+            </h2>
           </div>
 
           {badges.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <div className="text-lg mb-2">NO BADGES YET</div>
-              <div className="text-sm">// Complete quizzes and level up to earn badges</div>
+              <div className="text-sm">
+                // Complete quizzes and level up to earn badges
+              </div>
             </div>
           ) : (
             <div className="divide-y divide-gray-800">
@@ -226,9 +249,13 @@ export default function AchievementsPage() {
                     <div className="flex-1">
                       {/* Symbol and Name */}
                       <div className="flex items-center gap-4 mb-2">
-                        <span className="text-3xl text-white">{badge.symbol}</span>
+                        <span className="text-3xl text-white">
+                          {badge.symbol}
+                        </span>
                         <div>
-                          <h3 className="text-xl font-bold text-white">{badge.name}</h3>
+                          <h3 className="text-xl font-bold text-white">
+                            {badge.name}
+                          </h3>
                           <div className="flex items-center gap-3 mt-1">
                             <span className="text-xs text-gray-500 uppercase border border-gray-700 px-2 py-1">
                               {getTierName(badge.tier)}
@@ -306,5 +333,5 @@ export default function AchievementsPage() {
         </motion.div>
       </div>
     </div>
-  )
+  );
 }

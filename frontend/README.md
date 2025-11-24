@@ -81,24 +81,28 @@ frontend/
 ### Quiz Result Page Features
 
 #### Terminal Output Style
+
 - White banner header: `═══════════════ QUIZ SUMMARY ═══════════════`
 - Indented CLI-style logs with tree symbols (├─, └─)
 - ASCII divider lines using border elements
 - Monochrome color scheme consistent with dashboard
 
 #### Data Display
+
 - **Quiz Metadata**: Topic, difficulty (with █░░░ visual), timestamp
 - **Performance Metrics**: Score percentage, correct/total, accuracy bar
 - **XP Reward**: XP gained with scale animation, next difficulty
 - **Coach Feedback**: Motivation, insights, tips, next steps
 
 #### Interactive Elements
+
 - **RETRY_QUIZ()** button - Restart same topic/difficulty
 - **NEXT_TOPIC()** button - Return to dashboard for new recommendations
 - **Sound Toggle** - `[SOUND: ON/OFF]` for terminal click effects
 - **Return Link** - `← RETURN_TO_DASHBOARD` underlined link
 
 #### Animations (Framer Motion)
+
 - Staggered fade-in for each section (0.1s delays)
 - Horizontal scale animation for dividers
 - Accuracy bar fill animation (1s duration)
@@ -108,11 +112,13 @@ frontend/
 ### Component Features
 
 #### XP Progress Bar
+
 - Shows current level and total XP
 - Animated fill percentage
 - XP remaining to next level
 
 #### Topic Cards
+
 - Average score display
 - Last attempt timestamp
 - Total attempts counter
@@ -120,6 +126,7 @@ frontend/
 - Hover effects with underline
 
 #### Recommended Card
+
 - Priority badges (HIGH/MEDIUM/LOW)
 - Category labels (weak_area/review/new)
 - Current score and difficulty level
@@ -138,9 +145,7 @@ frontend/
 ## 🎨 Color Palette
 
 ```css
---terminal-black: #000000
---terminal-white: #FFFFFF
---terminal-gray: #CCCCCC
+--terminal-black: #000000 --terminal-white: #ffffff --terminal-gray: #cccccc;
 ```
 
 ## ⚙️ Configuration
@@ -205,6 +210,7 @@ The dashboard is fully responsive:
 - **Desktop**: 4-column stats grid, 2-column topics
 
 Breakpoints follow Tailwind defaults:
+
 - `md`: 768px
 - `lg`: 1024px
 

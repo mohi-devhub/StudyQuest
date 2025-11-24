@@ -2,53 +2,53 @@
  * Quiz difficulty levels
  */
 export enum QuizDifficulty {
-  EASY = 'easy',
-  MEDIUM = 'medium',
-  HARD = 'hard',
-  EXPERT = 'expert',
+  EASY = "easy",
+  MEDIUM = "medium",
+  HARD = "hard",
+  EXPERT = "expert",
 }
 
 /**
  * Quiz generation modes
  */
 export enum QuizMode {
-  SELECT = 'select',
-  SAVED = 'saved',
-  UPLOAD = 'upload',
-  TOPIC = 'topic',
-  QUIZ = 'quiz',
+  SELECT = "select",
+  SAVED = "saved",
+  UPLOAD = "upload",
+  TOPIC = "topic",
+  QUIZ = "quiz",
 }
 
 /**
  * Topic mastery status
  */
 export enum TopicStatus {
-  NOT_STARTED = 'not_started',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  MASTERED = 'mastered',
+  NOT_STARTED = "not_started",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  MASTERED = "mastered",
 }
 
 /**
  * Badge tier levels
  */
 export enum BadgeTier {
-  BRONZE = 'bronze',
-  SILVER = 'silver',
-  GOLD = 'gold',
-  PLATINUM = 'platinum',
+  BRONZE = "bronze",
+  SILVER = "silver",
+  GOLD = "gold",
+  PLATINUM = "platinum",
 }
 
 /**
  * XP gain types
  */
 export enum XPType {
-  STUDY_SESSION = 'study_session',
-  QUIZ_COMPLETE = 'quiz_complete',
-  QUIZ_PERFECT = 'quiz_perfect',
-  TOPIC_RETRY = 'topic_retry',
-  ACHIEVEMENT = 'achievement',
-  STREAK = 'streak',
+  STUDY_SESSION = "study_session",
+  QUIZ_COMPLETE = "quiz_complete",
+  QUIZ_PERFECT = "quiz_perfect",
+  TOPIC_RETRY = "topic_retry",
+  ACHIEVEMENT = "achievement",
+  STREAK = "streak",
 }
 
 /**
@@ -63,7 +63,7 @@ export const XP_VALUES = {
   TOPIC_RETRY: 10,
   PERFECT_SCORE_BONUS: 50,
   XP_PER_LEVEL: 500,
-} as const
+} as const;
 
 /**
  * Score thresholds
@@ -72,4 +72,4 @@ export const SCORE_THRESHOLDS = {
   MASTERED: 95,
   COMPLETED: 80,
   PASSING: 70,
-} as const
+} as const;

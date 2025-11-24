@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
+import { motion } from "framer-motion";
 
 export default function LoadingScreen() {
   return (
@@ -16,14 +16,14 @@ export default function LoadingScreen() {
             <motion.div
               key={i}
               initial={{ height: 8 }}
-              animate={{ 
+              animate={{
                 height: [8, 32, 8],
               }}
               transition={{
                 duration: 1,
                 repeat: Infinity,
                 delay: i * 0.1,
-                ease: 'easeInOut'
+                ease: "easeInOut",
               }}
               className="w-2 bg-terminal-white"
             />
@@ -34,10 +34,10 @@ export default function LoadingScreen() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ 
+          transition={{
             duration: 1.5,
             repeat: Infinity,
-            ease: 'easeInOut'
+            ease: "easeInOut",
           }}
           className="text-terminal-white text-xl font-mono"
         >
@@ -50,5 +50,5 @@ export default function LoadingScreen() {
         </div>
       </motion.div>
     </div>
-  )
+  );
 }

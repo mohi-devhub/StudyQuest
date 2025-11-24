@@ -1,28 +1,25 @@
-import type { Metadata } from 'next'
-import './globals.css'
-import { AuthProvider } from '@/lib/useAuth'
+import type { Metadata } from "next";
+import "./globals.css";
+import { AuthProvider } from "@/lib/useAuth";
 
 export const metadata: Metadata = {
-  title: 'StudyQuest - Developer Dashboard',
-  description: 'Monochrome terminal-style learning dashboard',
+  title: "StudyQuest - Developer Dashboard",
+  description: "Monochrome terminal-style learning dashboard",
   icons: {
-    icon: '/favicon.ico',
+    icon: "/favicon.ico",
   },
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
       <head>
         {/* Preload JetBrains Mono font for performance */}
-        <link
-          rel="preconnect"
-          href="https://fonts.googleapis.com"
-        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
@@ -42,10 +39,8 @@ export default function RootLayout({
         />
       </head>
       <body className="font-mono antialiased">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
-  )
+  );
 }

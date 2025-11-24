@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
-import { createLogger } from '@/lib/logger'
-
-const logger = createLogger('QuizPage')
 
 interface QuizQuestion {
   question: string
@@ -72,7 +69,7 @@ export default function QuizPage() {
       if (fetchError) throw fetchError
       setSavedSessions(data || [])
     } catch (err) {
-      logger.error('Error fetching sessions', { userId: user?.id, error: String(err) })
+      console.error('Error fetching sessions:', err)
       setError('Failed to load saved sessions. Make sure the study_sessions table migration has been run.')
     } finally {
       setLoading(false)
