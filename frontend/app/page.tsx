@@ -185,11 +185,11 @@ export default function Dashboard() {
         fetchDashboardData(userId)
       )
 
-      if (data) {
+      if (data && data.progress) {
         setProgress({
           user_id: userId,
-          total_xp: data.progress.total_xp || 0,
-          level: data.progress.level || 1,
+          total_xp: data.progress.user?.total_xp || 0,
+          level: data.progress.user?.level || 1,
           topics: data.progress.topics || [],
         })
         
