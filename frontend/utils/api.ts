@@ -116,7 +116,8 @@ export async function uploadFile<T>(
 }
 
 /**
- * Fetch all dashboard data in parallel
+ * Fetch dashboard data with optimized loading
+ * Progress loads immediately, recommendations load separately
  */
 export async function fetchDashboardData(userId: string): Promise<{
   progress: any
@@ -126,10 +127,20 @@ export async function fetchDashboardData(userId: string): Promise<{
     throw new Error('User ID is required to fetch dashboard data')
   }
 
-  const [progress, recommendations] = await Promise.all([
-    getApi(`progress/v2/${userId}`),
-    getApi(`study/recommendations?user_id=${userId}`),
-  ])
+  // Fetch progress immediately (fast)
+  const progress = await getApi(`progress/v2/${userId}`)
 
-  return { progress, recommendations }
+  // Return progress immediately, recommendations will be null
+  return { progress, recommendations: null }
+}
+
+/**
+ * Fetch recommendations separately (can be slow due to AI)
+ */
+export async function fetchRecommendations(userId: string): Promise<any> {
+  if (!userId) {
+    throw new Error('User ID is required to fetch recommendations')
+  }
+
+  return getApi(`study/recommendations?user_id=${userId}`)
 }

@@ -46,7 +46,7 @@ export default function LoadingScreen() {
 
         {/* Subtext */}
         <div className="mt-4 text-terminal-gray text-sm">
-          // Fetching dashboard data
+          // Loading your progress...
         </div>
       </motion.div>
     </div>

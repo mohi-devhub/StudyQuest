@@ -14,7 +14,7 @@ import { useRealtimeXP } from '@/lib/useRealtimeXP'
 import { useAuth } from '@/lib/useAuth'
 import { useLoadingState } from '@/hooks/useLoadingState'
 import { useErrorState } from '@/hooks/useErrorState'
-import { fetchDashboardData } from '@/utils/api'
+import { fetchDashboardData, fetchRecommendations } from '@/utils/api'
 import CelebrationModal from '@/components/CelebrationModal'
 import { createLogger } from '@/lib/logger'
 
@@ -192,7 +192,16 @@ export default function Dashboard() {
           level: data.progress.level || 1,
           topics: data.progress.topics || [],
         })
-        setRecommendations(data.recommendations)
+        
+        // Set empty recommendations initially
+        setRecommendations({
+          recommendations: [],
+          overall_stats: {
+            total_attempts: 0,
+            avg_score: 0,
+            topics_studied: 0,
+          },
+        })
       } else {
         // Set empty state on failure
         setProgress({
@@ -213,9 +222,24 @@ export default function Dashboard() {
     })
   }, [userId, withLoading, withErrorHandling])
 
+  const loadRecommendations = useCallback(async () => {
+    if (!userId) return
+
+    try {
+      const recs = await fetchRecommendations(userId)
+      setRecommendations(recs)
+    } catch (error) {
+      console.error('Failed to load recommendations:', error)
+      // Keep empty recommendations on error
+    }
+  }, [userId])
+
   useEffect(() => {
     if (userId) {
       loadDashboard()
+      
+      // Load recommendations separately (in background)
+      loadRecommendations()
       
       // Check if this is a retry session
       const isRetry = sessionStorage.getItem('isRetry')
@@ -237,7 +261,7 @@ export default function Dashboard() {
         }
       }
     }
-  }, [userId, loadDashboard])
+  }, [userId, loadDashboard, loadRecommendations])
 
   if (authLoading || isLoading) {
     return <LoadingScreen />
