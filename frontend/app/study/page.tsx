@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
 import { supabase } from "@/lib/supabase";
 import { createLogger } from "@/lib/logger";
@@ -20,12 +20,33 @@ interface StudyNotes {
 
 export default function StudyPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userId } = useAuth();
   const [topic, setTopic] = useState("");
   const [notes, setNotes] = useState<StudyNotes | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generationTime, setGenerationTime] = useState<number | null>(null);
+  const [autoStarted, setAutoStarted] = useState(false);
+
+  // Auto-generate notes if coming from recommendations
+  useEffect(() => {
+    const topicParam = searchParams.get('topic');
+    const autoStart = searchParams.get('autoStart');
+    const difficulty = searchParams.get('difficulty');
+    
+    if (autoStart === 'true' && topicParam && !autoStarted && !loading) {
+      setTopic(topicParam);
+      setAutoStarted(true);
+      // Trigger generation automatically
+      setTimeout(() => {
+        const formEvent = { preventDefault: () => {} } as React.FormEvent;
+        handleGenerate(formEvent);
+      }, 100);
+    } else if (topicParam && !topic) {
+      setTopic(topicParam);
+    }
+  }, [searchParams, autoStarted, loading]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +140,20 @@ export default function StudyPage() {
   return (
     <div className="min-h-screen bg-black text-white p-6 md:p-8 font-mono">
       <div className="max-w-4xl mx-auto">
+        {/* Back Button */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4"
+        >
+          <button
+            onClick={() => router.push('/')}
+            className="text-gray-400 hover:text-white transition-colors text-sm"
+          >
+            ← BACK_TO_DASHBOARD
+          </button>
+        </motion.div>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

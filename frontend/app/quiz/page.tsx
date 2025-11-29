@@ -95,12 +95,22 @@ export default function QuizPage() {
       }
 
       // Otherwise generate new quiz from the notes
+      // Get the session token
+      const {
+        data: { authSession },
+      } = await supabase.auth.getSession()
+
+      if (!authSession?.access_token) {
+        setError('Authentication required. Please log in again.')
+        return
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       const response = await fetch(`${apiUrl}/quiz/generate-from-topic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.id}`
+          'Authorization': `Bearer ${authSession.access_token}`
         },
         body: JSON.stringify({
           topic: session.topic,
@@ -138,6 +148,16 @@ export default function QuizPage() {
       setLoading(true)
       setError(null)
 
+      // Get the session token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setError('Authentication required. Please log in again.')
+        return
+      }
+
       const formData = new FormData()
       formData.append('file', selectedFile)
       formData.append('num_questions', '5')
@@ -146,7 +166,7 @@ export default function QuizPage() {
       const response = await fetch(`${apiUrl}/quiz/generate-from-pdf`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user?.id}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: formData
       })
@@ -177,12 +197,22 @@ export default function QuizPage() {
       setLoading(true)
       setError(null)
 
+      // Get the session token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setError('Authentication required. Please log in again.')
+        return
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       const response = await fetch(`${apiUrl}/quiz`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.id}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           topic: customTopic.trim(),
@@ -258,6 +288,23 @@ export default function QuizPage() {
     })
 
     const score = (correctCount / quizData.quiz.length) * 100
+    
+    // Store quiz data in sessionStorage for result page
+    const quizResults = {
+      topic: quizData.topic,
+      score,
+      correct: correctCount,
+      total: quizData.quiz.length,
+      questions: quizData.quiz.map((q, index) => ({
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.answer,
+        userAnswer: selectedAnswers[index],
+        explanation: q.explanation
+      }))
+    }
+    sessionStorage.setItem('quizResults', JSON.stringify(quizResults))
+    
     router.push(`/quiz/result?score=${score}&correct=${correctCount}&total=${quizData.quiz.length}&topic=${encodeURIComponent(quizData.topic)}`)
   }
 
@@ -272,6 +319,12 @@ export default function QuizPage() {
       <div className="min-h-screen bg-terminal-black text-terminal-white">
         <div className="border-b border-terminal-white/20">
           <div className="max-w-6xl mx-auto px-8 py-8">
+            <button
+              onClick={() => router.push('/')}
+              className="text-terminal-gray hover:text-terminal-white transition-colors text-sm mb-4"
+            >
+              ← BACK_TO_DASHBOARD
+            </button>
             <h1 className="text-4xl font-bold mb-2">QUIZ_GENERATOR()</h1>
             <p className="text-terminal-gray">Select how you want to generate your quiz</p>
           </div>

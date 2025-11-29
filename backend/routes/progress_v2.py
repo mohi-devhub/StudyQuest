@@ -133,7 +133,8 @@ async def get_progress_v2_info():
             "GET /user/{user_id}/xp-history": "Get XP change history",
             "GET /user/{user_id}/quiz-history": "Get quiz attempt history",
             "GET /user/{user_id}/stats": "Get user statistics",
-            "GET /leaderboard": "Get XP leaderboard with details"
+            "GET /leaderboard": "Get XP leaderboard with details",
+            "GET /debug/{user_id}": "DEBUG: Raw database data"
         },
         "features": [
             "Automatic XP calculation",
@@ -143,6 +144,27 @@ async def get_progress_v2_info():
             "Quiz attempt history"
         ]
     }
+
+
+@router.get("/debug/{user_id}")
+async def debug_user_data(user_id: str):
+    """DEBUG: See raw database data"""
+    try:
+        # Get raw data from all tables
+        user = supabase.table('users').select('*').eq('user_id', user_id).execute()
+        topics = supabase.table('user_topics').select('*').eq('user_id', user_id).execute()
+        quizzes = supabase.table('quiz_scores').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(5).execute()
+        
+        return {
+            "user": user.data if user.data else [],
+            "user_exists": len(user.data) > 0 if user.data else False,
+            "topics_raw": topics.data if topics.data else [],
+            "recent_quizzes": quizzes.data if quizzes.data else [],
+            "topics_count": len(topics.data) if topics.data else 0,
+            "quizzes_count": len(quizzes.data) if quizzes.data else 0
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.post("/submit-quiz")
@@ -189,26 +211,40 @@ async def submit_quiz(
         score = (submission.correct / submission.total) * 100
         xp_earned = calculate_xp(submission.correct, submission.total, validated_difficulty)
         
-        # Get current user XP and level
+        # Get or create user
         try:
-            user_result = supabase.table('users').select('total_xp, level').eq(
+            user_result = supabase.table('users').select('total_xp, level, username').eq(
                 'user_id', user_id
-            ).single().execute()
+            ).execute()
             
-            if not user_result.data:
-                raise HTTPException(
-                    status_code=404,
-                    detail={
-                        "status": "error",
-                        "message": f"User {user_id} not found",
-                        "code": "NOT_FOUND"
-                    }
-                )
+            if not user_result.data or len(user_result.data) == 0:
+                # User doesn't exist, create them
+                print(f"Creating new user: {user_id}")
+                new_user = supabase.table('users').insert({
+                    'user_id': user_id,
+                    'username': f'user_{user_id[:8]}',  # Generate username from ID
+                    'total_xp': 0,
+                    'level': 1
+                }).execute()
+                
+                if new_user.data:
+                    previous_xp = 0
+                    previous_level = 1
+                else:
+                    raise Exception("Failed to create user")
+            else:
+                user_data = user_result.data[0]
+                previous_xp = user_data.get('total_xp', 0)
+                previous_level = user_data.get('level', 1)
+                
+        except HTTPException:
+            raise
         except Exception as e:
-            raise handle_database_error("user lookup")
+            print(f"User lookup/create error: {str(e)}")
+            # If user lookup fails, use defaults and continue
+            previous_xp = 0
+            previous_level = 1
         
-        previous_xp = user_result.data['total_xp']
-        previous_level = user_result.data['level']
         new_xp = previous_xp + xp_earned
         new_level = calculate_level(new_xp)
         
@@ -256,12 +292,31 @@ async def submit_quiz(
         
         # Update user's total XP and level
         try:
+            print(f"Updating user {user_id}: previous_xp={previous_xp}, new_xp={new_xp}, xp_earned={xp_earned}")
+            
+            # Try updating with match
             user_update = supabase.table('users').update({
                 'total_xp': new_xp,
                 'level': new_level
-            }).eq('user_id', user_id).execute()
+            }).match({'user_id': user_id}).execute()
+            
+            print(f"User update result: {user_update.data}")
+            print(f"User update count: {user_update.count if hasattr(user_update, 'count') else 'N/A'}")
+            
+            if not user_update.data or len(user_update.data) == 0:
+                print(f"WARNING: User update returned no data. Checking if user exists...")
+                # Verify user exists
+                check_user = supabase.table('users').select('user_id, total_xp').eq('user_id', user_id).execute()
+                print(f"User check result: {check_user.data}")
+                
+                if check_user.data:
+                    print(f"ERROR: User exists but update failed!")
+                else:
+                    print(f"ERROR: User {user_id} not found in database!")
         except Exception as e:
             print(f"User update error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise handle_database_error("user XP update")
         
         # Also insert into xp_logs for backward compatibility
@@ -313,18 +368,44 @@ async def submit_quiz(
         )
 
 
-@router.get("/user/{user_id}")
+@router.get("/{user_id}")
 async def get_user_progress(user_id: str):
     """Get complete user progress including all topics and XP"""
     try:
         # Get user data
-        user = supabase.table('users').select('*').eq('user_id', user_id).single().execute()
+        user = supabase.table('users').select('*').eq('user_id', user_id).execute()
         
-        if not user.data:
-            raise HTTPException(status_code=404, detail=f"User {user_id} not found")
+        # Create user if doesn't exist
+        if not user.data or len(user.data) == 0:
+            print(f"User {user_id} not found, creating...")
+            new_user = supabase.table('users').insert({
+                'user_id': user_id,
+                'username': f'user_{user_id[:8]}',
+                'total_xp': 0,
+                'level': 1
+            }).execute()
+            
+            if new_user.data:
+                user.data = new_user.data
+            else:
+                raise HTTPException(status_code=500, detail="Failed to create user")
         
         # Get all topics
         topics = supabase.table('user_topics').select('*').eq('user_id', user_id).execute()
+        
+        # Transform topics to match frontend expectations
+        transformed_topics = [
+            {
+                'topic': t['topic'],
+                'avg_score': t.get('best_score', 0),  # Map best_score to avg_score
+                'total_attempts': t.get('attempts', 0),  # Map attempts to total_attempts
+                'last_attempt': t.get('last_attempted_at'),  # Map last_attempted_at to last_attempt
+                'status': t.get('status'),
+                'created_at': t.get('created_at'),
+                'updated_at': t.get('updated_at')
+            }
+            for t in (topics.data or [])
+        ]
         
         # Get recent XP history
         xp_history = supabase.table('xp_history').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(10).execute()
@@ -333,8 +414,8 @@ async def get_user_progress(user_id: str):
         quiz_count = supabase.table('quiz_scores').select('id', count='exact').eq('user_id', user_id).execute()
         
         return {
-            "user": user.data,
-            "topics": topics.data,
+            "user": user.data[0] if user.data else None,  # Return single user object, not array
+            "topics": transformed_topics,
             "recent_xp_history": xp_history.data,
             "total_quizzes": quiz_count.count,
             "stats": calculate_user_stats(topics.data)
@@ -437,28 +518,57 @@ async def get_user_stats(user_id: str):
     """Get aggregated user statistics"""
     try:
         # Use the view we created
-        stats = supabase.table('user_progress_summary').select('*').eq('user_id', user_id).single().execute()
+        stats = supabase.table('user_progress_summary').select('*').eq('user_id', user_id).execute()
         
         # Get user data
-        user = supabase.table('users').select('total_xp, level').eq('user_id', user_id).single().execute()
+        user = supabase.table('users').select('total_xp, level').eq('user_id', user_id).execute()
         
+        # Get stats from view or defaults
+        progress_stats = stats.data[0] if stats.data and len(stats.data) > 0 else {
+            "total_topics": 0,
+            "mastered_count": 0,
+            "completed_count": 0,
+            "in_progress_count": 0,
+            "avg_best_score": 0,
+            "total_attempts": 0,
+            "total_time_spent": 0
+        }
+        
+        # Get user info
+        user_info = user.data[0] if user.data and len(user.data) > 0 else {
+            "total_xp": 0,
+            "level": 1
+        }
+        
+        # Return flat structure for frontend compatibility
         return {
             "user_id": user_id,
-            "total_xp": user.data['total_xp'],
-            "level": user.data['level'],
-            "progress": stats.data if stats.data else {
-                "total_topics": 0,
-                "mastered_count": 0,
-                "completed_count": 0,
-                "in_progress_count": 0,
-                "avg_best_score": 0,
-                "total_attempts": 0,
-                "total_time_spent": 0
-            }
+            "total_xp": user_info.get('total_xp', 0),
+            "level": user_info.get('level', 1),
+            "topics_started": progress_stats.get('total_topics', 0),
+            "topics_mastered": progress_stats.get('mastered_count', 0),
+            "topics_completed": progress_stats.get('completed_count', 0),
+            "topics_in_progress": progress_stats.get('in_progress_count', 0),
+            "average_score": progress_stats.get('avg_best_score', 0),
+            "quizzes_completed": progress_stats.get('total_attempts', 0),
+            "total_time_spent": progress_stats.get('total_time_spent', 0)
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+        print(f"Error getting user stats: {str(e)}")
+        # Return default stats on error
+        return {
+            "user_id": user_id,
+            "total_xp": 0,
+            "level": 1,
+            "topics_started": 0,
+            "topics_mastered": 0,
+            "topics_completed": 0,
+            "topics_in_progress": 0,
+            "average_score": 0,
+            "quizzes_completed": 0,
+            "total_time_spent": 0
+        }
 
 
 @router.get("/leaderboard")
@@ -484,17 +594,17 @@ async def get_leaderboard(limit: int = 10):
 def get_feedback(score: float) -> str:
     """Generate feedback based on score"""
     if score >= 95:
-        return "Perfect! Outstanding mastery! 🌟"
+        return "Perfect! Outstanding mastery! [***]"
     elif score >= 90:
-        return "Excellent work! You've mastered this topic! 🎉"
+        return "Excellent work! You've mastered this topic! [++]"
     elif score >= 80:
-        return "Great job! Solid understanding demonstrated! 👍"
+        return "Great job! Solid understanding demonstrated! [+]"
     elif score >= 70:
-        return "Good effort! Keep practicing to improve! 📚"
+        return "Good effort! Keep practicing to improve! [=]"
     elif score >= 50:
-        return "Fair attempt. Review the material and try again! 💪"
+        return "Fair attempt. Review the material and try again! [-]"
     else:
-        return "Keep learning! Practice makes perfect! 🚀"
+        return "Keep learning! Practice makes perfect! [>]"
 
 
 def calculate_user_stats(topics: List[Dict]) -> Dict:

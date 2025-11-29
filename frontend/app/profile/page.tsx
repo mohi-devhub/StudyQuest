@@ -177,7 +177,7 @@ export default function ProfilePage() {
                 XP TO NEXT LEVEL
               </div>
               <div className="text-xl font-bold">
-                {profile ? profile.level * 100 - profile.total_xp : 0}
+                {profile ? Math.max(0, (profile.level * 500) - profile.total_xp) : 0}
               </div>
             </div>
             <div className="border border-terminal-gray p-4">

@@ -144,7 +144,7 @@ export default function Dashboard() {
       setCelebration({
         isOpen: true,
         type: "level",
-        title: `🎉 LEVEL UP!`,
+        title: `[+] LEVEL UP!`,
         message: `You are now Level ${newLevel} – ${title}`,
       });
     },
@@ -164,7 +164,7 @@ export default function Dashboard() {
       setCelebration({
         isOpen: true,
         type: "badge",
-        title: `🏆 BADGE UNLOCKED!`,
+        title: `[*] BADGE UNLOCKED!`,
         message: badge.description,
         symbol: badge.symbol,
       });
@@ -207,13 +207,20 @@ export default function Dashboard() {
         fetchDashboardData(userId),
       );
 
+      console.log('Dashboard data received:', data);
+      console.log('User data:', data?.progress?.user);
+      console.log('Total XP:', data?.progress?.user?.total_xp);
+
       if (data && data.progress) {
-        setProgress({
+        const newProgress = {
           user_id: userId,
           total_xp: data.progress.user?.total_xp || 0,
           level: data.progress.user?.level || 1,
           topics: data.progress.topics || [],
-        });
+        };
+        
+        console.log('Setting progress to:', newProgress);
+        setProgress(newProgress);
 
         // Set empty recommendations initially
         setRecommendations({
@@ -248,11 +255,37 @@ export default function Dashboard() {
     if (!userId) return;
 
     try {
+      console.log('Fetching recommendations for user:', userId);
       const recs = await fetchRecommendations(userId);
-      setRecommendations(recs);
+      console.log('Recommendations received:', JSON.stringify(recs, null, 2));
+      console.log('Overall stats:', recs?.overall_stats);
+      
+      if (recs && recs.overall_stats) {
+        setRecommendations(recs);
+      } else {
+        // If no overall_stats in response, use defaults
+        console.warn('No overall_stats in response, using defaults');
+        setRecommendations({
+          recommendations: recs?.recommendations || [],
+          overall_stats: {
+            total_attempts: 0,
+            avg_score: 0,
+            topics_studied: 0,
+          },
+          ai_insights: recs?.ai_insights
+        });
+      }
     } catch (error) {
       console.error("Failed to load recommendations:", error);
-      // Keep empty recommendations on error
+      // Keep default recommendations with zero stats
+      setRecommendations({
+        recommendations: [],
+        overall_stats: {
+          total_attempts: 0,
+          avg_score: 0,
+          topics_studied: 0,
+        },
+      });
     }
   }, [userId]);
 
@@ -262,6 +295,17 @@ export default function Dashboard() {
 
       // Load recommendations separately (in background)
       loadRecommendations();
+
+      // Reload dashboard when page becomes visible (e.g., after returning from quiz)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          console.log('Page visible, reloading dashboard data...');
+          loadDashboard();
+          loadRecommendations();
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       // Check if this is a retry session
       const isRetry = sessionStorage.getItem("isRetry");
@@ -282,6 +326,11 @@ export default function Dashboard() {
           sessionStorage.removeItem("isRetry");
         }
       }
+
+      // Cleanup
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     }
   }, [userId, loadDashboard, loadRecommendations]);
 
@@ -332,6 +381,19 @@ export default function Dashboard() {
           className="mt-8"
         >
           <XPProgressBar currentXP={progress.total_xp} level={progress.level} />
+          {/* DEBUG: Show user ID */}
+          <div className="mt-2 text-xs text-terminal-gray">
+            User ID: {userId} 
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(userId || '');
+                alert('User ID copied!');
+              }}
+              className="ml-2 text-terminal-green hover:underline"
+            >
+              [copy]
+            </button>
+          </div>
         </motion.div>
 
         {/* Quick Actions */}
@@ -503,7 +565,7 @@ export default function Dashboard() {
           <p>StudyQuest v1.0 // Monochrome Terminal Dashboard</p>
           <p className="mt-2">
             Real-time updates:{" "}
-            {isConnected ? "🟢 CONNECTED" : "🔴 DISCONNECTED"}
+            {isConnected ? "[✓] CONNECTED" : "[✗] DISCONNECTED"}
           </p>
         </motion.div>
       </div>
