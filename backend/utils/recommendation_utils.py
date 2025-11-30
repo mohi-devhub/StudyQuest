@@ -38,15 +38,27 @@ class RecommendationHelper:
         try:
             supabase = RecommendationHelper.get_supabase_client()
             
-            # Fetch from progress table
-            response = supabase.table("progress").select(
-                "topic, avg_score, total_attempts, last_attempt, created_at, updated_at"
+            # Fetch from user_topics table (updated by triggers when quizzes are submitted)
+            response = supabase.table("user_topics").select(
+                "topic, best_score, attempts, last_attempted_at, status, created_at, updated_at"
             ).eq("user_id", user_id).execute()
             
             if not response.data:
                 return []
             
-            return response.data
+            # Transform to match expected format
+            return [
+                {
+                    'topic': item['topic'],
+                    'avg_score': item['best_score'],  # Use best_score as avg_score
+                    'quizzes_completed': item['attempts'],
+                    'last_completed_at': item['last_attempted_at'],
+                    'status': item.get('status'),
+                    'created_at': item.get('created_at'),
+                    'updated_at': item.get('updated_at')
+                }
+                for item in response.data
+            ]
         
         except Exception as e:
             print(f"Error fetching user progress: {e}")
@@ -67,14 +79,26 @@ class RecommendationHelper:
         try:
             supabase = RecommendationHelper.get_supabase_client()
             
-            # Fetch topics with low scores
-            response = supabase.table("progress").select(
-                "topic, avg_score, total_attempts, last_attempt"
-            ).eq("user_id", user_id).lt("avg_score", threshold).order(
-                "avg_score", desc=False
+            # Fetch topics with low scores from user_topics
+            response = supabase.table("user_topics").select(
+                "topic, best_score, attempts, last_attempted_at"
+            ).eq("user_id", user_id).lt("best_score", threshold).order(
+                "best_score", desc=False
             ).execute()
             
-            return response.data if response.data else []
+            if not response.data:
+                return []
+            
+            # Transform to match expected format
+            return [
+                {
+                    'topic': item['topic'],
+                    'avg_score': item['best_score'],
+                    'quizzes_completed': item['attempts'],
+                    'last_completed_at': item['last_attempted_at']
+                }
+                for item in response.data
+            ]
         
         except Exception as e:
             print(f"Error fetching weak areas: {e}")
@@ -95,12 +119,21 @@ class RecommendationHelper:
         try:
             supabase = RecommendationHelper.get_supabase_client()
             
-            response = supabase.table("progress").select(
-                "topic, avg_score, total_attempts, last_attempt, created_at, updated_at"
+            response = supabase.table("user_topics").select(
+                "topic, best_score, attempts, last_attempted_at, status, created_at, updated_at"
             ).eq("user_id", user_id).eq("topic", topic).execute()
             
             if response.data:
-                return response.data[0]
+                item = response.data[0]
+                return {
+                    'topic': item['topic'],
+                    'avg_score': item['best_score'],
+                    'quizzes_completed': item['attempts'],
+                    'last_completed_at': item['last_attempted_at'],
+                    'status': item.get('status'),
+                    'created_at': item.get('created_at'),
+                    'updated_at': item.get('updated_at')
+                }
             return None
         
         except Exception as e:
@@ -123,7 +156,7 @@ class RecommendationHelper:
             supabase = RecommendationHelper.get_supabase_client()
             
             response = supabase.table("xp_logs").select(
-                "activity, xp_earned, metadata, created_at"
+                "source, xp_amount, metadata, created_at"
             ).eq("user_id", user_id).order(
                 "created_at", desc=True
             ).limit(limit).execute()
@@ -148,7 +181,7 @@ class RecommendationHelper:
         try:
             supabase = RecommendationHelper.get_supabase_client()
             
-            query = supabase.table("progress").select("topic")
+            query = supabase.table("user_topics").select("topic")
             
             if user_id:
                 query = query.eq("user_id", user_id)
@@ -188,11 +221,11 @@ class RecommendationHelper:
                 }
             
             # Calculate recent XP average (last 5 activities)
-            recent_xp = [log.get('xp_earned', 0) for log in xp_history[:5]]
+            recent_xp = [log.get('xp_amount', 0) for log in xp_history[:5]]
             recent_avg = sum(recent_xp) / len(recent_xp) if recent_xp else 0
             
             # Calculate older XP average (previous 5 activities)
-            older_xp = [log.get('xp_earned', 0) for log in xp_history[5:10]]
+            older_xp = [log.get('xp_amount', 0) for log in xp_history[5:10]]
             older_avg = sum(older_xp) / len(older_xp) if older_xp else 0
             
             # Determine trend
@@ -242,12 +275,12 @@ class RecommendationHelper:
             Formatted user context
         """
         # Calculate overall metrics
-        total_attempts = sum(p.get('total_attempts', 0) for p in user_progress)
+        total_attempts = sum(p.get('quizzes_completed', 0) for p in user_progress)
         avg_score = (
             sum(p.get('avg_score', 0) for p in user_progress) / len(user_progress)
             if user_progress else 0
         )
-        total_xp = sum(log.get('xp_earned', 0) for log in xp_history)
+        total_xp = sum(log.get('xp_amount', 0) for log in xp_history)
         
         # Identify performance level
         if avg_score >= 85:

@@ -9,7 +9,7 @@ interface TopicData {
   topic: string;
   avg_score: number;
   total_attempts: number;
-  last_attempt: string;
+  last_attempt: string | null;
 }
 
 interface TopicCardProps {

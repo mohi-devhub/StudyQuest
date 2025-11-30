@@ -5,8 +5,7 @@ Analyzes user performance and provides personalized feedback and recommendations
 import os
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+import google.generativeai as genai
 from config.supabase_client import supabase
 from utils.logger import get_logger
 
@@ -14,8 +13,12 @@ load_dotenv()
 
 logger = get_logger(__name__)
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+
+# Configure Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
 def sanitize_input(input_text: str) -> str:
@@ -38,14 +41,17 @@ def sanitize_input(input_text: str) -> str:
     return input_text.strip()
 
 
-def get_openrouter_llm(model: str = "google/gemini-2.0-flash-exp:free"):
-    """Get OpenRouter LLM instance"""
-    return ChatOpenAI(
-        model=model,
-        openai_api_key=OPENROUTER_API_KEY,
-        openai_api_base=OPENROUTER_BASE_URL,
-        temperature=0.7,
-        max_tokens=500,
+def get_gemini_model(model: str = None):
+    """Get Gemini model instance"""
+    model_name = model or GEMINI_MODEL
+    return genai.GenerativeModel(
+        model_name=model_name,
+        generation_config={
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 500
+        }
     )
 
 
@@ -70,7 +76,7 @@ def analyze_user_performance(user_id: str) -> Dict:
         topics = topics_response.data if topics_response.data else []
         
         # Get recent quiz scores
-        quiz_response = supabase.table('quiz_scores').select('*').eq('user_id', user_id).order('attempted_at', desc=True).limit(10).execute()
+        quiz_response = supabase.table('quiz_scores').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(10).execute()
         recent_quizzes = quiz_response.data if quiz_response.data else []
         
         # Categorize topics
@@ -78,9 +84,10 @@ def analyze_user_performance(user_id: str) -> Dict:
         strong_topics = [t for t in topics if t.get('best_score', 0) >= 80]
         recent_topics = [q.get('topic') for q in recent_quizzes[:5]]
         
-        # Calculate overall stats
+        # Calculate overall stats (match frontend expectations)
         total_quizzes = len(recent_quizzes)
         avg_score = sum(q.get('score', 0) for q in recent_quizzes) / total_quizzes if total_quizzes > 0 else 0
+        topics_studied = len(topics)  # Count unique topics from user_topics
         
         return {
             "user_stats": user_stats,
@@ -88,8 +95,9 @@ def analyze_user_performance(user_id: str) -> Dict:
             "strong_topics": strong_topics,
             "recent_topics": list(set(recent_topics)),  # Unique topics
             "overall_stats": {
-                "total_quizzes": total_quizzes,
-                "average_score": avg_score,
+                "total_attempts": total_quizzes,  # Match frontend expectation
+                "avg_score": avg_score,  # Match frontend expectation
+                "topics_studied": topics_studied,  # Match frontend expectation
                 "total_xp": user_stats.get('total_xp', 0),
                 "level": user_stats.get('level', 1)
             }
@@ -102,8 +110,9 @@ def analyze_user_performance(user_id: str) -> Dict:
             "strong_topics": [],
             "recent_topics": [],
             "overall_stats": {
-                "total_quizzes": 0,
-                "average_score": 0,
+                "total_attempts": 0,  # Match frontend expectation
+                "avg_score": 0,  # Match frontend expectation
+                "topics_studied": 0,  # Match frontend expectation
                 "total_xp": 0,
                 "level": 1
             }
@@ -116,7 +125,7 @@ def generate_topic_recommendations(
     recent_topics: List[str]
 ) -> List[str]:
     """
-    Generate new topic recommendations based on performance using OpenRouter
+    Generate new topic recommendations based on performance using Google Gemini
     
     Args:
         weak_topics: Topics user struggles with
@@ -127,35 +136,30 @@ def generate_topic_recommendations(
         List of 3-5 recommended topics
     """
     try:
-        llm = get_openrouter_llm()
+        model = get_gemini_model()
         
         # Build context
         weak_list = ", ".join([t.get('topic', '') for t in weak_topics[:5]])
         strong_list = ", ".join([t.get('topic', '') for t in strong_topics[:5]])
         recent_list = ", ".join(recent_topics[:5])
         
-        system_prompt = """You are an educational advisor. Based on the user's learning history, 
+        prompt = f"""You are an educational advisor. Based on the user's learning history, 
 suggest 3-5 new related topics they should study next. Consider:
 1. Topics that complement their strong areas
 2. Foundational topics for their weak areas
 3. Progressive learning paths
 
-Return ONLY a numbered list of topic names, one per line. No explanations."""
+Return ONLY a numbered list of topic names, one per line. No explanations.
 
-        user_prompt = f"""User's learning profile:
+User's learning profile:
 Weak topics (< 60%): {weak_list or 'None yet'}
 Strong topics (>= 80%): {strong_list or 'None yet'}
 Recent topics: {recent_list or 'None yet'}
 
 Suggest 3-5 new topics to study:"""
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt)
-        ]
-        
-        response = llm.invoke(messages)
-        recommendations = response.content.strip().split('\n')
+        response = model.generate_content(prompt)
+        recommendations = response.text.strip().split('\n')
         
         # Clean up numbered list
         cleaned = []
@@ -189,13 +193,13 @@ def generate_motivational_message(
         List of 1-2 motivational messages
     """
     try:
-        llm = get_openrouter_llm()
+        model = get_gemini_model()
         
-        system_prompt = """You are a supportive coding mentor. Generate 1-2 short, motivational messages 
+        prompt = f"""You are a supportive coding mentor. Generate 1-2 short, motivational messages 
 in a terminal/monospace style. Be encouraging but concise. Use ASCII art sparingly.
-Keep messages under 100 characters each. Focus on progress and growth mindset."""
+Keep messages under 100 characters each. Focus on progress and growth mindset.
 
-        user_prompt = f"""User stats:
+User stats:
 - Average score: {avg_score:.1f}%
 - Total quizzes: {total_quizzes}
 - Current level: {level}
@@ -204,13 +208,8 @@ Keep messages under 100 characters each. Focus on progress and growth mindset.""
 
 Generate 1-2 motivational messages (one per line):"""
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt)
-        ]
-        
-        response = llm.invoke(messages)
-        messages_list = [m.strip() for m in response.content.strip().split('\n') if m.strip()]
+        response = model.generate_content(prompt)
+        messages_list = [m.strip() for m in response.text.strip().split('\n') if m.strip()]
         
         return messages_list[:2]  # Max 2 messages
         
@@ -259,8 +258,8 @@ async def generate_adaptive_feedback(user_id: str) -> Dict:
     
     # Generate motivational messages
     motivational_messages = generate_motivational_message(
-        avg_score=stats['average_score'],
-        total_quizzes=stats['total_quizzes'],
+        avg_score=stats['avg_score'],
+        total_quizzes=stats['total_attempts'],
         level=stats['level'],
         weak_count=len(weak_topics),
         strong_count=len(strong_topics)
@@ -281,8 +280,8 @@ async def generate_adaptive_feedback(user_id: str) -> Dict:
         "success": True,
         "user_id": user_id,
         "performance_summary": {
-            "average_score": round(stats['average_score'], 1),
-            "total_quizzes": stats['total_quizzes'],
+            "average_score": round(stats['avg_score'], 1),
+            "total_quizzes": stats['total_attempts'],
             "level": stats['level'],
             "total_xp": stats['total_xp'],
             "weak_topics_count": len(weak_topics),

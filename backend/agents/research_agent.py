@@ -1,4 +1,4 @@
-import httpx
+import google.generativeai as genai
 import os
 import json
 from typing import Dict, List
@@ -27,24 +27,30 @@ def sanitize_input(input_text: str):
         if phrase in input_text.lower():
             raise ValueError("Prompt injection attempt detected.")
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash")
+
+# Configure Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
-async def generate_notes(topic: str, model: str = "google/gemini-2.0-flash-exp:free") -> dict:
+async def generate_notes(topic: str, model: str = None) -> dict:
     """
-    Generate study notes for a given topic using OpenRouter API.
+    Generate study notes for a given topic using Google Gemini API.
     
     Args:
         topic: The topic to generate notes for
-        model: The OpenRouter model ID to use
+        model: The Gemini model to use (defaults to GEMINI_MODEL env var)
         
     Returns:
         dict with 'summary' and 'key_points' keys
     """
     sanitize_input(topic)
-    if not OPENROUTER_API_KEY:
-        raise ValueError("OPENROUTER_API_KEY not found in environment variables")
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY not found in environment variables")
+    
+    model_name = model or GEMINI_MODEL
     
     # Construct the prompt
     prompt = f"""Explain the topic "{topic}" in 5-7 concise bullet points for a beginner.
@@ -63,68 +69,43 @@ Format your response as JSON with this structure:
 
 Make sure each bullet point is clear, concise, and easy to understand for someone learning this topic for the first time."""
     
-    # Prepare the API request
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:8000",  # Optional, for rankings
-        "X-Title": "StudyQuest"  # Optional, shows in rankings
-    }
-    
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0.7,
-        "max_tokens": 1000,
-        "response_format": {"type": "json_object"}  # Request JSON response
-    }
-    
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                OPENROUTER_BASE_URL,
-                headers=headers,
-                json=payload
-            )
-            response.raise_for_status()
-            
-            # Parse the response
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
-            
-            # Parse the JSON content
-            parsed_content = json.loads(content)
-            
-            return {
-                "topic": topic,
-                "summary": parsed_content.get("summary", ""),
-                "key_points": parsed_content.get("key_points", [])
+        # Initialize the model
+        model_instance = genai.GenerativeModel(
+            model_name=model_name,
+            generation_config={
+                "temperature": 0.7,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 1000,
+                "response_mime_type": "application/json"
             }
+        )
+        
+        # Generate content
+        response = model_instance.generate_content(prompt)
+        
+        # Parse the JSON response
+        parsed_content = json.loads(response.text)
+        
+        return {
+            "topic": topic,
+            "summary": parsed_content.get("summary", ""),
+            "key_points": parsed_content.get("key_points", [])
+        }
             
-    except httpx.HTTPStatusError as e:
-        error_detail = e.response.text
-        raise Exception(f"OpenRouter API error: {e.response.status_code} - {error_detail}")
     except json.JSONDecodeError as e:
         raise Exception(f"Failed to parse AI response as JSON: {str(e)}")
-    except KeyError as e:
-        raise Exception(f"Unexpected API response structure: missing {str(e)}")
     except Exception as e:
-        raise Exception(f"Failed to generate notes: {str(e)}")
+        raise Exception(f"Gemini API error: {str(e)}")
 
 
 async def generate_notes_with_fallback(topic: str) -> dict:
-    """Try multiple models in order until one succeeds."""
+    """Try multiple Gemini models in order until one succeeds."""
     models = [
-        "google/gemini-2.0-flash-exp:free",
-        "meta-llama/llama-3.2-3b-instruct:free",
-        "meta-llama/llama-3.2-1b-instruct:free",
-        "qwen/qwen-2.5-7b-instruct:free",
-        "microsoft/phi-3-mini-128k-instruct:free"
+        "models/gemini-2.0-flash",
+        "models/gemini-flash-latest",
+        "models/gemini-pro-latest"
     ]
     
     last_error = None

@@ -13,6 +13,7 @@ import pytest
 import asyncio
 import time
 from typing import Dict, List
+from datetime import timezone, datetime
 
 # Import agents
 from agents.adaptive_quiz_agent import AdaptiveQuizAgent
@@ -24,7 +25,7 @@ class TestQuizQuality:
     """Test quiz generation quality and validity"""
     
     @pytest.mark.asyncio
-    async def test_quiz_produces_valid_questions(self):
+    async def test_quiz_produces_valid_questions(self, mock_httpx_client):
         """
         Test that quiz generation produces valid questions with 4 options and 1 answer.
         Requirement: 8.2 - Valid question structure
@@ -79,7 +80,7 @@ class TestQuizQuality:
                 f"Question {i} has invalid answer '{q['answer']}', must be A, B, C, or D"
     
     @pytest.mark.asyncio
-    async def test_quiz_questions_are_unique(self):
+    async def test_quiz_questions_are_unique(self, mock_httpx_client):
         """
         Test that all generated questions are unique (no duplicates).
         Requirement: 8.2 - Question uniqueness
@@ -112,7 +113,7 @@ class TestQuizQuality:
             f"Found duplicate questions: {len(question_texts)} total, {len(unique_questions)} unique"
     
     @pytest.mark.asyncio
-    async def test_quiz_difficulty_appropriateness(self):
+    async def test_quiz_difficulty_appropriateness(self, mock_httpx_client):
         """
         Test that questions match the requested difficulty level.
         Requirement: 8.2 - Difficulty appropriateness
@@ -154,7 +155,7 @@ class TestQuizQuality:
                 assert q['answer'] in ['A', 'B', 'C', 'D']
     
     @pytest.mark.asyncio
-    async def test_quiz_explanations_present(self):
+    async def test_quiz_explanations_present(self, mock_httpx_client):
         """
         Test that questions include explanations for learning.
         Requirement: 8.2 - Educational quality
@@ -192,15 +193,13 @@ class TestRecommendationQuality:
     """Test recommendation relevance and accuracy"""
     
     @pytest.mark.asyncio
-    async def test_recommendations_relevant_to_weak_areas(self):
+    async def test_recommendations_relevant_to_weak_areas(self, mock_httpx_client):
         """
         Test that recommendations prioritize weak areas.
         Requirement: 8.2 - Recommendation relevance
         """
-        from datetime import datetime
         
-        # Use recent dates to avoid stale topic detection (timezone-naive to match agent)
-        recent_date = datetime.now().isoformat()
+        recent_date = datetime.now(timezone.utc).isoformat()
         
         user_progress = [
             {
@@ -246,14 +245,13 @@ class TestRecommendationQuality:
             "Strong topics should not be prioritized"
     
     @pytest.mark.asyncio
-    async def test_recommendations_include_difficulty_guidance(self):
+    async def test_recommendations_include_difficulty_guidance(self, mock_httpx_client):
         """
         Test that recommendations include appropriate difficulty levels.
         Requirement: 8.2 - Recommendation quality
         """
-        from datetime import datetime
         
-        recent_date = datetime.now().isoformat()
+        recent_date = datetime.now(timezone.utc).isoformat()
         
         user_progress = [
             {
@@ -285,7 +283,7 @@ class TestRecommendationQuality:
                     "Weak areas should recommend easier difficulty"
     
     @pytest.mark.asyncio
-    async def test_recommendations_for_new_users(self):
+    async def test_recommendations_for_new_users(self, mock_httpx_client):
         """
         Test that new users receive appropriate recommendations.
         Requirement: 8.2 - New user experience
@@ -313,14 +311,13 @@ class TestRecommendationQuality:
                 "New users should have no current scores"
     
     @pytest.mark.asyncio
-    async def test_recommendations_include_xp_estimates(self):
+    async def test_recommendations_include_xp_estimates(self, mock_httpx_client):
         """
         Test that recommendations include XP gain estimates.
         Requirement: 8.2 - Gamification support
         """
-        from datetime import datetime
         
-        recent_date = datetime.now().isoformat()
+        recent_date = datetime.now(timezone.utc).isoformat()
         
         user_progress = [
             {
@@ -353,7 +350,7 @@ class TestCoachFeedbackQuality:
     """Test coach feedback contextuality and helpfulness"""
     
     @pytest.mark.asyncio
-    async def test_coach_generates_complete_study_package(self):
+    async def test_coach_generates_complete_study_package(self, mock_httpx_client):
         """
         Test that coach agent generates complete, contextual study packages.
         Requirement: 8.2 - Coach feedback quality
@@ -387,7 +384,7 @@ class TestCoachFeedbackQuality:
             assert q['answer'] in ['A', 'B', 'C', 'D']
     
     @pytest.mark.asyncio
-    async def test_coach_notes_are_educational(self):
+    async def test_coach_notes_are_educational(self, mock_httpx_client):
         """
         Test that generated notes are educational and well-structured.
         Requirement: 8.2 - Educational content quality
@@ -414,7 +411,7 @@ class TestCoachFeedbackQuality:
                 f"Key point {i} too short: '{point_text}'"
     
     @pytest.mark.asyncio
-    async def test_coach_quiz_aligns_with_notes(self):
+    async def test_coach_quiz_aligns_with_notes(self, mock_httpx_client):
         """
         Test that quiz questions align with the generated notes.
         Requirement: 8.2 - Content alignment
@@ -451,7 +448,7 @@ class TestResponseTimePerformance:
     """Test AI response time performance"""
     
     @pytest.mark.asyncio
-    async def test_quiz_generation_response_time(self):
+    async def test_quiz_generation_response_time(self, mock_httpx_client):
         """
         Test that quiz generation completes within acceptable time (<3 seconds).
         Requirement: 8.2 - Response time performance
@@ -493,14 +490,13 @@ class TestResponseTimePerformance:
         print(f"\nQuiz generation time: {duration:.2f}s")
     
     @pytest.mark.asyncio
-    async def test_recommendation_generation_response_time(self):
+    async def test_recommendation_generation_response_time(self, mock_httpx_client):
         """
         Test that recommendation generation is fast.
         Requirement: 8.2 - Response time performance
         """
-        from datetime import datetime
         
-        recent_date = datetime.now().isoformat()
+        recent_date = datetime.now(timezone.utc).isoformat()
         
         user_progress = [
             {
@@ -538,7 +534,7 @@ class TestResponseTimePerformance:
         print(f"\nRecommendation generation time: {duration:.2f}s")
     
     @pytest.mark.asyncio
-    async def test_study_workflow_response_time(self):
+    async def test_study_workflow_response_time(self, mock_httpx_client):
         """
         Test that complete study workflow completes in reasonable time.
         Requirement: 8.2 - End-to-end performance
@@ -583,7 +579,7 @@ class TestAIErrorHandling:
             )
     
     @pytest.mark.asyncio
-    async def test_quiz_fallback_mechanism(self):
+    async def test_quiz_fallback_mechanism(self, mock_httpx_client):
         """
         Test that quiz generation has working fallback.
         Requirement: 8.2 - Reliability
@@ -614,7 +610,7 @@ class TestAIErrorHandling:
             assert q['answer'] in ['A', 'B', 'C', 'D']
     
     @pytest.mark.asyncio
-    async def test_quiz_with_invalid_api_key(self):
+    async def test_quiz_with_invalid_api_key(self, mock_httpx_client):
         """
         Test that quiz generation handles invalid API key with fallback.
         Requirement: 8.4 - Invalid API key handling
@@ -622,11 +618,11 @@ class TestAIErrorHandling:
         import os
         
         # Save original API key
-        original_key = os.getenv('OPENROUTER_API_KEY')
+        original_key = os.getenv('GEMINI_API_KEY')
         
         try:
             # Set invalid API key
-            os.environ['OPENROUTER_API_KEY'] = 'invalid_key_12345'
+            os.environ['GEMINI_API_KEY'] = 'invalid_key_12345'
             
             notes = """
             Topic: Error Handling Test
@@ -655,12 +651,12 @@ class TestAIErrorHandling:
         finally:
             # Restore original API key
             if original_key:
-                os.environ['OPENROUTER_API_KEY'] = original_key
+                os.environ['GEMINI_API_KEY'] = original_key
             else:
-                os.environ.pop('OPENROUTER_API_KEY', None)
+                os.environ.pop('GEMINI_API_KEY', None)
     
     @pytest.mark.asyncio
-    async def test_quiz_with_network_timeout(self):
+    async def test_quiz_with_network_timeout(self, mocker):
         """
         Test that quiz generation handles network timeout gracefully.
         Requirement: 8.4 - Network timeout handling
@@ -699,22 +695,21 @@ class TestAIErrorHandling:
                 f"Error message should mention timeout: {error_message}"
     
     @pytest.mark.asyncio
-    async def test_recommendation_with_invalid_api_key(self):
+    async def test_recommendation_with_invalid_api_key(self, mock_httpx_client):
         """
         Test that recommendations handle invalid API key gracefully.
         Requirement: 8.4 - Invalid API key handling for recommendations
         """
         import os
-        from datetime import datetime
         
         # Save original API key
-        original_key = os.getenv('OPENROUTER_API_KEY')
+        original_key = os.getenv('GEMINI_API_KEY')
         
         try:
             # Set invalid API key
-            os.environ['OPENROUTER_API_KEY'] = 'invalid_recommendation_key'
+            os.environ['GEMINI_API_KEY'] = 'invalid_recommendation_key'
             
-            recent_date = datetime.now().isoformat()
+            recent_date = datetime.now(timezone.utc).isoformat()
             user_progress = [
                 {
                     'topic': 'Python',
@@ -744,21 +739,20 @@ class TestAIErrorHandling:
         finally:
             # Restore original API key
             if original_key:
-                os.environ['OPENROUTER_API_KEY'] = original_key
+                os.environ['GEMINI_API_KEY'] = original_key
             else:
-                os.environ.pop('OPENROUTER_API_KEY', None)
+                os.environ.pop('GEMINI_API_KEY', None)
     
     @pytest.mark.asyncio
-    async def test_recommendation_with_network_timeout(self):
+    async def test_recommendation_with_network_timeout(self, mocker):
         """
         Test that recommendations handle network timeout gracefully.
         Requirement: 8.4 - Network timeout handling for recommendations
         """
         import httpx
         from unittest.mock import patch, AsyncMock
-        from datetime import datetime
         
-        recent_date = datetime.now().isoformat()
+        recent_date = datetime.now(timezone.utc).isoformat()
         user_progress = [
             {
                 'topic': 'JavaScript',
@@ -790,7 +784,7 @@ class TestAIErrorHandling:
                 "AI enhancement should be disabled on timeout"
     
     @pytest.mark.asyncio
-    async def test_coach_with_invalid_api_key(self):
+    async def test_coach_with_invalid_api_key(self, mock_httpx_client):
         """
         Test that coach agent handles invalid API key gracefully.
         Requirement: 8.4 - Invalid API key handling for coach
@@ -798,11 +792,11 @@ class TestAIErrorHandling:
         import os
         
         # Save original API key
-        original_key = os.getenv('OPENROUTER_API_KEY')
+        original_key = os.getenv('GEMINI_API_KEY')
         
         try:
             # Set invalid API key
-            os.environ['OPENROUTER_API_KEY'] = 'invalid_coach_key'
+            os.environ['GEMINI_API_KEY'] = 'invalid_coach_key'
             
             # Should raise exception with user-friendly message
             with pytest.raises(Exception) as exc_info:
@@ -819,12 +813,12 @@ class TestAIErrorHandling:
         finally:
             # Restore original API key
             if original_key:
-                os.environ['OPENROUTER_API_KEY'] = original_key
+                os.environ['GEMINI_API_KEY'] = original_key
             else:
-                os.environ.pop('OPENROUTER_API_KEY', None)
+                os.environ.pop('GEMINI_API_KEY', None)
     
     @pytest.mark.asyncio
-    async def test_error_messages_are_user_friendly(self):
+    async def test_error_messages_are_user_friendly(self, mock_httpx_client):
         """
         Test that all error messages are user-friendly and don't expose internals.
         Requirement: 8.4 - User-friendly error messages
@@ -844,9 +838,9 @@ class TestAIErrorHandling:
         
         # Test 2: Missing API key error
         import os
-        original_key = os.getenv('OPENROUTER_API_KEY')
+        original_key = os.getenv('GEMINI_API_KEY')
         try:
-            os.environ.pop('OPENROUTER_API_KEY', None)
+            os.environ.pop('GEMINI_API_KEY', None)
             
             notes = "Test notes for error handling"
             
@@ -858,17 +852,17 @@ class TestAIErrorHandling:
                 )
             
             error_msg = str(exc_info.value)
-            assert 'OPENROUTER_API_KEY' in error_msg, \
+            assert 'GEMINI_API_KEY' in error_msg, \
                 "Error should mention missing API key"
             assert 'not found' in error_msg.lower() or 'missing' in error_msg.lower(), \
                 "Error should be clear about what's missing"
             
         finally:
             if original_key:
-                os.environ['OPENROUTER_API_KEY'] = original_key
+                os.environ['GEMINI_API_KEY'] = original_key
     
     @pytest.mark.asyncio
-    async def test_fallback_with_multiple_model_failures(self):
+    async def test_fallback_with_multiple_model_failures(self, mocker):
         """
         Test that system tries multiple fallback models before failing.
         Requirement: 8.4 - Fallback mechanism with retries

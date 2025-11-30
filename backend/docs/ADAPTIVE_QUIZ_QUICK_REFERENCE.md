@@ -167,7 +167,7 @@ python3 test_adaptive_quiz.py
 ### Environment Variables
 
 ```bash
-OPENROUTER_API_KEY=your_key      # Required for AI
+GEMINI_API_KEY=your_key      # Required for AI
 SUPABASE_URL=your_url            # Required for tracking
 SUPABASE_KEY=your_key            # Required for tracking
 ```
@@ -217,7 +217,7 @@ Reasoning: "Your average score of 42.0% suggests you need more practice.
 | 401 Unauthorized | Missing/invalid token | Include `Authorization: Bearer TOKEN` |
 | 400 Invalid difficulty | Wrong difficulty value | Use: easy, medium, hard, or expert |
 | 400 Empty topic | No topic provided | Include valid `topic` field |
-| 500 Generation failure | API key or network issue | Check OPENROUTER_API_KEY, try again |
+| 500 Generation failure | API key or network issue | Check GEMINI_API_KEY, try again |
 
 ---
 

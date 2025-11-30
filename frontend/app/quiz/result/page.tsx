@@ -3,10 +3,32 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, Suspense } from "react";
+import { useAuth } from "@/lib/useAuth";
+import { supabase } from "@/lib/supabase";
+
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  userAnswer?: string;
+  explanation?: string;
+}
+
+interface QuizResults {
+  topic: string;
+  score: number;
+  correct: number;
+  total: number;
+  questions: QuizQuestion[];
+}
 
 function ResultContent() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [quizResults, setQuizResults] = useState<QuizResults | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [xpEarned, setXpEarned] = useState<number | null>(null);
 
   const score = Number(searchParams.get("score")) || 0;
   const correct = Number(searchParams.get("correct")) || 0;
@@ -15,7 +37,64 @@ function ResultContent() {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Load quiz results from sessionStorage
+    const stored = sessionStorage.getItem('quizResults');
+    if (stored) {
+      setQuizResults(JSON.parse(stored));
+    }
   }, []);
+
+  useEffect(() => {
+    // Submit quiz to backend
+    const submitQuiz = async () => {
+      if (!user?.id || submitting || xpEarned !== null) return;
+      
+      setSubmitting(true);
+      try {
+        // Get the Supabase session token
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.error('No auth token available');
+          return;
+        }
+        
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/progress/v2/submit-quiz`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            topic: topic,
+            correct: correct,
+            total: total,
+            difficulty: 'medium',
+            time_taken: 0
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setXpEarned(data.xp_earned || 0);
+        } else {
+          console.error('Quiz submission failed:', response.status, await response.text());
+        }
+      } catch (error) {
+        console.error('Failed to submit quiz:', error);
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    if (mounted && user?.id) {
+      submitQuiz();
+    }
+  }, [mounted, user, topic, correct, total, submitting, xpEarned]);
 
   if (!mounted) {
     return (
@@ -80,8 +159,81 @@ function ResultContent() {
                 {score.toFixed(1)}%
               </span>
             </div>
+            {xpEarned !== null && (
+              <div className="flex justify-between pt-4 border-t border-terminal-white/20">
+                <span className="text-terminal-gray">XP Earned:</span>
+                <span className="font-mono text-terminal-green">+{xpEarned} XP</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Question Review */}
+        {quizResults && quizResults.questions.length > 0 && (
+          <div className="border border-terminal-white/30 p-8 mb-8">
+            <h2 className="text-xl font-bold mb-6">QUESTION_REVIEW()</h2>
+            <div className="space-y-6">
+              {quizResults.questions.map((q, index) => {
+                const isCorrect = q.userAnswer === q.correctAnswer;
+                const wasAnswered = q.userAnswer !== undefined;
+                
+                return (
+                  <div key={index} className={`p-4 border ${isCorrect ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+                    <div className="flex items-start gap-3 mb-3">
+                      <span className={`font-mono ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                        {isCorrect ? '✓' : '✗'}
+                      </span>
+                      <div className="flex-1">
+                        <div className="font-bold mb-2">Q{index + 1}: {q.question}</div>
+                        
+                        {/* Options */}
+                        <div className="space-y-2 mb-3">
+                          {q.options.map((option, optIndex) => {
+                            const letter = String.fromCharCode(65 + optIndex);
+                            const isCorrectOption = letter === q.correctAnswer;
+                            const isUserAnswer = letter === q.userAnswer;
+                            
+                            return (
+                              <div key={optIndex} className={`flex items-center gap-2 text-sm ${
+                                isCorrectOption ? 'text-green-400 font-bold' : 
+                                isUserAnswer && !isCorrect ? 'text-red-400' : 
+                                'text-terminal-gray'
+                              }`}>
+                                <span className="font-mono">{letter}.</span>
+                                <span>{option}</span>
+                                {isCorrectOption && <span className="ml-2">✓ Correct</span>}
+                                {isUserAnswer && !isCorrect && <span className="ml-2">✗ Your answer</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Result */}
+                        {!wasAnswered ? (
+                          <div className="text-yellow-400 text-sm">Not answered</div>
+                        ) : isCorrect ? (
+                          <div className="text-green-400 text-sm">✓ Correct!</div>
+                        ) : (
+                          <div className="text-red-400 text-sm">
+                            ✗ Wrong. Correct answer: {q.correctAnswer}
+                          </div>
+                        )}
+
+                        {/* Explanation */}
+                        {q.explanation && !isCorrect && (
+                          <div className="mt-3 p-3 bg-terminal-white/5 border-l-2 border-blue-400">
+                            <div className="text-blue-400 text-xs font-bold mb-1">EXPLANATION:</div>
+                            <div className="text-terminal-gray text-sm">{q.explanation}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

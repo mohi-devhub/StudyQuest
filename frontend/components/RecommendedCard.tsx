@@ -24,9 +24,9 @@ export default function RecommendedCard({
   const [isHovered, setIsHovered] = useState(false);
   const router = useRouter();
 
-  const handleStartQuiz = () => {
+  const handleStartStudy = () => {
     router.push(
-      `/quiz?topic=${encodeURIComponent(recommendation.topic)}&difficulty=${recommendation.recommended_difficulty}`,
+      `/study?topic=${encodeURIComponent(recommendation.topic)}&difficulty=${recommendation.recommended_difficulty}&autoStart=true`,
     );
   };
 
@@ -79,43 +79,57 @@ export default function RecommendedCard({
 
         {/* Details Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 mb-6">
-          <div>
-            <div className="text-terminal-gray text-xs mb-1">CURRENT_SCORE</div>
+          <div className="border border-terminal-gray p-3">
+            <div className="text-terminal-gray text-xs mb-1">// CURRENT_SCORE</div>
             <div className="text-xl font-bold">
               {recommendation.current_score !== null
-                ? `${recommendation.current_score}%`
-                : "NEW"}
+                ? `${recommendation.current_score.toFixed(1)}%`
+                : "[NEW]"}
             </div>
           </div>
 
-          <div>
-            <div className="text-terminal-gray text-xs mb-1">DIFFICULTY</div>
-            <div className="text-xl font-bold font-mono">
+          <div className="border border-terminal-gray p-3">
+            <div className="text-terminal-gray text-xs mb-1">// DIFFICULTY</div>
+            <div className="text-lg font-bold font-mono">
               {getDifficultyLabel(recommendation.recommended_difficulty)}
             </div>
-          </div>
-
-          <div>
-            <div className="text-terminal-gray text-xs mb-1">XP_GAIN</div>
-            <div className="text-xl font-bold text-terminal-white">
-              +{recommendation.estimated_xp_gain}
+            <div className="text-xs text-terminal-gray mt-1">
+              {recommendation.recommended_difficulty.toUpperCase()}
             </div>
           </div>
 
-          <div>
-            <div className="text-terminal-gray text-xs mb-1">URGENCY</div>
-            <div className="text-sm">{recommendation.urgency}</div>
+          <div className="border border-terminal-gray p-3">
+            <div className="text-terminal-gray text-xs mb-1">// EST_XP_GAIN</div>
+            <div className="text-xl font-bold text-terminal-white">
+              +{recommendation.estimated_xp_gain} XP
+            </div>
           </div>
+
+          <div className="border border-terminal-gray p-3">
+            <div className="text-terminal-gray text-xs mb-1">// PRIORITY</div>
+            <div className="text-sm font-bold">
+              [{recommendation.priority.toUpperCase()}]
+            </div>
+            <div className="text-xs text-terminal-gray mt-1">
+              {recommendation.category.replace(/_/g, ' ').toUpperCase()}
+            </div>
+          </div>
+        </div>
+        
+        {/* Urgency Banner */}
+        <div className="border-l-4 border-terminal-white bg-terminal-black bg-opacity-50 p-3 mb-6">
+          <div className="text-xs text-terminal-gray mb-1">// WHY NOW?</div>
+          <div className="text-sm">{recommendation.urgency}</div>
         </div>
 
         {/* Action Button */}
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={handleStartQuiz}
+          onClick={handleStartStudy}
           className="w-full bg-terminal-black text-terminal-white border border-terminal-white px-8 py-4 hover:bg-terminal-white hover:text-terminal-black transition-all font-bold text-lg"
         >
-          START_QUIZ() →
+          GENERATE_NOTES() →
         </motion.button>
       </div>
 

@@ -3,7 +3,7 @@ Adaptive Quiz Agent - Adjusts quiz difficulty based on user performance
 Uses past quiz data from Supabase to personalize difficulty
 """
 
-import httpx
+import google.generativeai as genai
 import os
 import json
 from typing import Dict, List, Optional, Tuple
@@ -16,8 +16,12 @@ load_dotenv()
 logger = get_logger(__name__)
 quiz_cache = get_quiz_cache()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+
+# Configure Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
 class AdaptiveQuizAgent:
@@ -40,11 +44,10 @@ class AdaptiveQuizAgent:
     
     # Model preferences for different difficulties
     MODELS = {
-        'primary': "google/gemini-2.0-flash-exp:free",
+        'primary': "models/gemini-2.0-flash",
         'fallback': [
-            "meta-llama/llama-3.2-3b-instruct:free",
-            "meta-llama/llama-3.2-1b-instruct:free",
-            "qwen/qwen-2.5-7b-instruct:free"
+            "models/gemini-flash-latest",
+            "models/gemini-pro-latest"
         ]
     }
     
@@ -171,9 +174,6 @@ class AdaptiveQuizAgent:
         Returns:
             Dictionary with questions and metadata
         """
-        if not OPENROUTER_API_KEY:
-            raise ValueError("OPENROUTER_API_KEY not found in environment variables")
-        
         if not notes or not notes.strip():
             raise ValueError("Notes cannot be empty")
         
@@ -250,98 +250,74 @@ Make sure:
 - Explanations are thorough and educational
 - The JSON is valid and properly formatted"""
         
-        # Prepare the API request
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8000",
-            "X-Title": "StudyQuest Adaptive Quiz"
-        }
-        
         # Get temperature from difficulty context
         temperature = diff_context.get('temperature', 0.7)
         
-        payload = {
-            "model": AdaptiveQuizAgent.MODELS['primary'],
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"You are an expert educational content creator specializing in {difficulty}-level quiz questions. Generate questions that accurately reflect {difficulty} difficulty."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": temperature,
-            "max_tokens": 2500,
-            "response_format": {"type": "json_object"}
-        }
-        
         try:
-            async with httpx.AsyncClient(timeout=45.0) as client:
-                response = await client.post(
-                    OPENROUTER_BASE_URL,
-                    headers=headers,
-                    json=payload
-                )
-                response.raise_for_status()
-                
-                # Parse the response
-                data = response.json()
-                content = data["choices"][0]["message"]["content"]
-                
-                # Parse the JSON content
-                parsed_content = json.loads(content)
-                
-                # Extract questions
-                if "questions" in parsed_content:
-                    questions = parsed_content["questions"]
-                elif isinstance(parsed_content, list):
-                    questions = parsed_content
-                else:
-                    raise ValueError("Unexpected response format from AI")
-                
-                # Validate questions
-                validated_questions = AdaptiveQuizAgent._validate_adaptive_questions(
-                    questions, num_questions, difficulty
-                )
-                
-                result = {
-                    "difficulty": difficulty,
-                    "questions": validated_questions,
-                    "metadata": {
-                        "model": AdaptiveQuizAgent.MODELS['primary'],
-                        "cognitive_level": diff_context['cognitive_level'],
-                        "generated_count": len(validated_questions),
-                        "cached": False
-                    }
+            # Initialize the model
+            model_instance = genai.GenerativeModel(
+                model_name=AdaptiveQuizAgent.MODELS['primary'],
+                generation_config={
+                    "temperature": temperature,
+                    "top_p": 0.95,
+                    "top_k": 40,
+                    "max_output_tokens": 2500,
+                    "response_mime_type": "application/json"
+                },
+                system_instruction=f"You are an expert educational content creator specializing in {difficulty}-level quiz questions. Generate questions that accurately reflect {difficulty} difficulty."
+            )
+            
+            # Generate content
+            response = model_instance.generate_content(prompt)
+            
+            # Parse the JSON content
+            parsed_content = json.loads(response.text)
+            
+            # Extract questions
+            if "questions" in parsed_content:
+                questions = parsed_content["questions"]
+            elif isinstance(parsed_content, list):
+                questions = parsed_content
+            else:
+                raise ValueError("Unexpected response format from AI")
+            
+            # Validate questions
+            validated_questions = AdaptiveQuizAgent._validate_adaptive_questions(
+                questions, num_questions, difficulty
+            )
+            
+            result = {
+                "difficulty": difficulty,
+                "questions": validated_questions,
+                "metadata": {
+                    "model": AdaptiveQuizAgent.MODELS['primary'],
+                    "cognitive_level": diff_context['cognitive_level'],
+                    "generated_count": len(validated_questions),
+                    "cached": False
                 }
+            }
+            
+            # Cache the result
+            quiz_cache.set(
+                notes,
+                AdaptiveQuizAgent.MODELS['primary'],
+                result,
+                **cache_key_params
+            )
+            
+            logger.info(
+                "Quiz generated and cached",
+                difficulty=difficulty,
+                num_questions=num_questions,
+                cache_hit=False
+            )
+            
+            return result
                 
-                # Cache the result
-                quiz_cache.set(
-                    notes,
-                    AdaptiveQuizAgent.MODELS['primary'],
-                    result,
-                    **cache_key_params
-                )
-                
-                logger.info(
-                    "Quiz generated and cached",
-                    difficulty=difficulty,
-                    num_questions=num_questions,
-                    cache_hit=False
-                )
-                
-                return result
-                
-        except httpx.HTTPStatusError as e:
-            error_detail = e.response.text
-            raise Exception(f"OpenRouter API error: {e.response.status_code} - {error_detail}")
         except json.JSONDecodeError as e:
             raise Exception(f"Failed to parse AI response as JSON: {str(e)}")
         except Exception as e:
-            raise Exception(f"Failed to generate adaptive quiz: {str(e)}")
+            raise Exception(f"Gemini API error: {str(e)}")
     
     @staticmethod
     def _validate_adaptive_questions(

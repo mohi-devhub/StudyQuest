@@ -9,7 +9,7 @@ Run: python3 test_recommendations.py
 
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(__file__))
@@ -32,7 +32,7 @@ def print_subheader(title):
 
 def create_mock_progress_data():
     """Create mock user progress data for testing"""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     
     return [
         # Weak area - low score
@@ -359,8 +359,8 @@ def test_edge_cases():
     
     print_subheader("Extreme Values")
     extreme_data = [
-        {'topic': 'Perfect', 'avg_score': 100.0, 'total_attempts': 1, 'last_attempt': datetime.now().isoformat()},
-        {'topic': 'Zero', 'avg_score': 0.0, 'total_attempts': 1, 'last_attempt': datetime.now().isoformat()},
+        {'topic': 'Perfect', 'avg_score': 100.0, 'total_attempts': 1, 'last_attempt': datetime.now(timezone.utc).isoformat()},
+        {'topic': 'Zero', 'avg_score': 0.0, 'total_attempts': 1, 'last_attempt': datetime.now(timezone.utc).isoformat()},
     ]
     
     extreme_weak = RecommendationAgent.analyze_weak_areas(extreme_data)

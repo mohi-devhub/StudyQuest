@@ -46,8 +46,14 @@ export function getScoreColor(score: number): string {
 /**
  * Format date to relative time (e.g., "2d ago", "Today")
  */
-export function formatRelativeTime(date: string | Date): string {
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return "Never";
+  
   const dateObj = typeof date === "string" ? new Date(date) : date;
+  
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) return "Never";
+  
   const daysSince = Math.floor(
     (Date.now() - dateObj.getTime()) / (1000 * 60 * 60 * 24),
   );
@@ -62,8 +68,14 @@ export function formatRelativeTime(date: string | Date): string {
 /**
  * Format date to a readable string
  */
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "N/A";
+  
   const dateObj = typeof date === "string" ? new Date(date) : date;
+  
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) return "N/A";
+  
   return dateObj.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",

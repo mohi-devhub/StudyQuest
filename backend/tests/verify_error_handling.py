@@ -47,8 +47,8 @@ async def test_missing_api_key():
     
     try:
         # Remove API key
-        if 'OPENROUTER_API_KEY' in os.environ:
-            del os.environ['OPENROUTER_API_KEY']
+        if 'GEMINI_API_KEY' in os.environ:
+            del os.environ['GEMINI_API_KEY']
         
         notes = "Test notes about Python programming"
         
@@ -61,7 +61,7 @@ async def test_missing_api_key():
         
     except ValueError as e:
         error_msg = str(e)
-        if 'OPENROUTER_API_KEY' in error_msg:
+        if 'GEMINI_API_KEY' in error_msg:
             print(f"✅ PASSED: Caught ValueError with clear message")
             print(f"   Error message: {error_msg}")
         else:
@@ -82,11 +82,11 @@ async def test_recommendation_fallback():
     print("="*60)
     
     # Save original key
-    original_key = os.getenv('OPENROUTER_API_KEY')
+    original_key = os.getenv('GEMINI_API_KEY')
     
     try:
         # Set invalid API key
-        os.environ['OPENROUTER_API_KEY'] = 'invalid_test_key_12345'
+        os.environ['GEMINI_API_KEY'] = 'invalid_test_key_12345'
         
         recent_date = datetime.now().isoformat()
         user_progress = [
@@ -122,7 +122,7 @@ async def test_recommendation_fallback():
     finally:
         # Restore original key
         if original_key:
-            os.environ['OPENROUTER_API_KEY'] = original_key
+            os.environ['GEMINI_API_KEY'] = original_key
 
 
 async def test_valid_quiz_generation():
@@ -132,8 +132,8 @@ async def test_valid_quiz_generation():
     print("="*60)
     
     # Check if API key is set
-    if not os.getenv('OPENROUTER_API_KEY'):
-        print("⚠️  SKIPPED: OPENROUTER_API_KEY not set")
+    if not os.getenv('GEMINI_API_KEY'):
+        print("⚠️  SKIPPED: GEMINI_API_KEY not set")
         return
     
     try:

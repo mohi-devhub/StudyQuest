@@ -14,7 +14,7 @@ This directory contains automated workflows for testing, security scanning, and 
 **Required Secrets:**
 - `SUPABASE_URL`
 - `SUPABASE_KEY`
-- `OPENROUTER_API_KEY`
+- `GEMINI_API_KEY`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 

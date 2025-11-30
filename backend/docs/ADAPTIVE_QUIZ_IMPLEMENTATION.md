@@ -107,7 +107,7 @@ Successfully implemented a comprehensive **Adaptive Quiz System** that automatic
 5. AdaptiveQuizAgent.generate_adaptive_quiz_with_fallback()
    ├─> Get difficulty context (temperature, cognitive level)
    ├─> Build adaptive prompt
-   ├─> Call OpenRouter API (Gemini/Llama models)
+   ├─> Call Google Gemini API
    └─> Validate and format questions
    ↓
 6. AdaptiveQuizHelper.format_adaptive_response()
@@ -393,7 +393,7 @@ Quiz 4: medium → 70% → medium (stabilizing)
 
 ```bash
 # AI Model Access
-OPENROUTER_API_KEY=your_api_key
+GEMINI_API_KEY=your_api_key
 
 # Supabase (for performance tracking)
 SUPABASE_URL=your_supabase_url

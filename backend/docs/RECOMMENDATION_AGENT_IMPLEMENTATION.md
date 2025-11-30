@@ -183,7 +183,7 @@ Successfully implemented a comprehensive **Study Recommendation Agent** that ana
    │   ├─> Motivational message
    │   ├─> Learning insights
    │   └─> Priority advice
-   └─> Uses OpenRouter (Gemini/Llama)
+   └─> Uses Google Gemini
    ↓
 6. Format and Return Response
    ├─> Recommendations array
@@ -456,7 +456,7 @@ curl -X GET "http://localhost:8000/study/recommendations" \
 
 ```bash
 # AI Enhancement (optional but recommended)
-OPENROUTER_API_KEY=your_api_key
+GEMINI_API_KEY=your_api_key
 
 # Database (required)
 SUPABASE_URL=your_supabase_url

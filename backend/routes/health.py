@@ -51,11 +51,11 @@ async def detailed_health_check() -> Dict[str, Any]:
     if supabase_status["status"] != "healthy":
         health_status["status"] = "degraded"
     
-    # Check OpenRouter API
-    openrouter_status = await _check_openrouter()
-    health_status["dependencies"]["openrouter"] = openrouter_status
+    # Check Gemini API
+    gemini_status = await _check_gemini()
+    health_status["dependencies"]["gemini"] = gemini_status
     
-    if openrouter_status["status"] != "healthy":
+    if gemini_status["status"] != "healthy":
         health_status["status"] = "degraded"
     
     return health_status
@@ -88,51 +88,48 @@ async def _check_supabase() -> Dict[str, Any]:
         }
 
 
-async def _check_openrouter() -> Dict[str, Any]:
+async def _check_gemini() -> Dict[str, Any]:
     """
-    Check OpenRouter API availability.
+    Check Google Gemini API availability.
     
     Returns:
         Dict with status, response time, and error if any
     """
     try:
-        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+        import google.generativeai as genai
         
-        if not openrouter_api_key:
+        gemini_api_key = os.getenv("GEMINI_API_KEY")
+        gemini_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        
+        if not gemini_api_key:
             return {
                 "status": "unhealthy",
-                "error": "OPENROUTER_API_KEY not configured"
+                "error": "GEMINI_API_KEY not configured"
             }
         
         start_time = time.time()
         
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(
-                "https://openrouter.ai/api/v1/models",
-                headers={
-                    "Authorization": f"Bearer {openrouter_api_key}"
-                }
-            )
-            
-            response_time_ms = int((time.time() - start_time) * 1000)
-            
-            if response.status_code == 200:
-                return {
-                    "status": "healthy",
-                    "response_time_ms": response_time_ms
-                }
-            else:
-                return {
-                    "status": "degraded",
-                    "response_time_ms": response_time_ms,
-                    "error": f"HTTP {response.status_code}"
-                }
+        # Configure and test Gemini
+        genai.configure(api_key=gemini_api_key)
+        model = genai.GenerativeModel(gemini_model)
+        
+        # Simple test generation
+        response = model.generate_content("Hello")
+        
+        response_time_ms = int((time.time() - start_time) * 1000)
+        
+        if response.text:
+            return {
+                "status": "healthy",
+                "response_time_ms": response_time_ms
+            }
+        else:
+            return {
+                "status": "degraded",
+                "response_time_ms": response_time_ms,
+                "error": "Empty response"
+            }
                 
-    except httpx.TimeoutException:
-        return {
-            "status": "unhealthy",
-            "error": "Request timeout (>5s)"
-        }
     except Exception as e:
         return {
             "status": "unhealthy",

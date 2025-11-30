@@ -97,10 +97,10 @@ jobs:
             exit 1
           fi
           
-          # Check OpenRouter dependency
-          openrouter_status=$(echo "$response" | jq -r '.dependencies.openrouter.status')
-          if [ "$openrouter_status" != "healthy" ]; then
-            echo "❌ OpenRouter dependency unhealthy"
+          # Check Gemini dependency
+          gemini_status=$(echo "$response" | jq -r '.dependencies.gemini.status')
+          if [ "$gemini_status" != "healthy" ]; then
+            echo "❌ Gemini dependency unhealthy"
             exit 1
           fi
           

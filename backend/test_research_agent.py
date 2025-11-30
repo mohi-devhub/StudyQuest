@@ -20,15 +20,14 @@ async def test_research_agent():
     """Test the research agent with a sample topic"""
     
     # Check if API key is set
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("❌ OPENROUTER_API_KEY not set in .env file")
+        print("❌ GEMINI_API_KEY not set in .env file")
         print("\nTo get an API key:")
-        print("1. Visit https://openrouter.ai/")
-        print("2. Sign up for a free account")
-        print("3. Go to https://openrouter.ai/keys")
-        print("4. Create a new API key")
-        print("5. Add it to backend/.env file")
+        print("1. Visit https://makersuite.google.com/app/apikey")
+        print("2. Sign in with your Google account")
+        print("3. Create a new API key")
+        print("4. Add it to backend/.env file")
         return
     
     print("✓ OpenRouter API key found")

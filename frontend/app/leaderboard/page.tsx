@@ -91,13 +91,13 @@ export default function LeaderboardPage() {
   const getRankIcon = (rank: number): string => {
     switch (rank) {
       case 1:
-        return "👑";
+        return "[#1]";
       case 2:
-        return "🥈";
+        return "[#2]";
       case 3:
-        return "🥉";
+        return "[#3]";
       default:
-        return "  ";
+        return "    ";
     }
   };
 
@@ -201,7 +201,7 @@ export default function LeaderboardPage() {
               <span
                 className={`ml-2 ${isConnected ? "text-terminal-white" : "text-terminal-gray"}`}
               >
-                {isConnected ? "🟢 LIVE" : "🔴 OFFLINE"}
+                {isConnected ? "[✓] LIVE" : "[✗] OFFLINE"}
               </span>
             </div>
           </div>

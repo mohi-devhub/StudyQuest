@@ -26,7 +26,7 @@ StudyQuest is a full-stack learning application built with Next.js, FastAPI, and
 ## Tech Stack
 
 * **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS, Framer Motion
-* **Backend**: FastAPI, Python 3.11+, LangChain, OpenRouter
+* **Backend**: FastAPI, Python 3.11+, Google Gemini AI
 * **Database**: Supabase (PostgreSQL), Supabase Realtime
 * **Authentication**: Supabase Auth (SSR & JWT)
 
@@ -39,7 +39,7 @@ StudyQuest is a full-stack learning application built with Next.js, FastAPI, and
 * Node.js 18+
 * Python 3.11+
 * Supabase Account
-* OpenRouter API Key
+* Google Gemini API Key
 
 ### 1. Backend Setup
 
@@ -208,7 +208,7 @@ For detailed CI/CD setup and configuration, see [CI/CD Guide](docs/deployment/CI
              │                        │
              ▼                        ▼
 ┌─────────────────────┐  ┌─────────────────────────────────┐
-│  Supabase (DB)      │  │  OpenRouter (AI)                │
+│  Supabase (DB)      │  │  Google Gemini (AI)             │
 │  - PostgreSQL       │  │  - Quiz Generation              │
 │  - Auth             │  │  - Recommendations              │
 │  - Realtime         │  │  - Coaching                     │
@@ -239,7 +239,7 @@ For detailed CI/CD setup and configuration, see [CI/CD Guide](docs/deployment/CI
 - Real-time subscriptions
 
 **AI System:**
-- OpenRouter API integration
+- Google Gemini API integration
 - Model: google/gemini-2.0-flash-exp:free
 - Response caching (1-hour TTL)
 - Fallback models configured
@@ -298,7 +298,7 @@ curl http://localhost:3000/api/health
 ### Health Check Features
 
 - **Automatic monitoring**: Docker health checks run every 30 seconds
-- **Dependency validation**: Verifies Supabase and OpenRouter connectivity
+- **Dependency validation**: Verifies Supabase and Google Gemini connectivity
 - **Response time tracking**: Measures database query performance
 - **Graceful degradation**: Reports "degraded" status if dependencies fail
 

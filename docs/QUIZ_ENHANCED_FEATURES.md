@@ -169,7 +169,7 @@ Response:
 - **PDF Type**: Text-based PDFs only (not scanned images)
 - **Text Extraction**: Complex layouts may not extract perfectly
 - **Questions**: Maximum 10 questions per quiz
-- **API Rate Limits**: Free tier of OpenRouter has daily limits
+- **API Rate Limits**: Free tier of Google Gemini has daily limits
 
 ## Troubleshooting
 
@@ -183,7 +183,7 @@ Response:
 - Try a simpler PDF first to test
 
 **"Rate limit exceeded"**
-- OpenRouter free tier is rate-limited
+- Google Gemini free tier is rate-limited
 - Wait for rate limit to reset or add credits
 - Cached results are used when available
 

@@ -43,7 +43,7 @@ async def get_adaptive_feedback(request: Request, user_id: str):
     Returns:
     - Performance summary
     - Topics to review
-    - New topic recommendations (via OpenRouter AI)
+    - New topic recommendations (via Google Gemini AI)
     - Motivational messages
     - Next steps
     """

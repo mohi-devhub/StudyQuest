@@ -263,7 +263,7 @@ BASE_XP_ESTIMATE = 150     # Base XP per quiz
 | No recommendations | New user, no progress | Complete first quiz |
 | Only weak areas | Struggling in all topics | Focus on one topic at a time |
 | All stale | Inactive for long period | Start with favorite topic |
-| No AI insights | API key missing | Add OPENROUTER_API_KEY |
+| No AI insights | API key missing | Add GEMINI_API_KEY |
 
 ---
 
@@ -302,7 +302,7 @@ BASE_XP_ESTIMATE = 150     # Base XP per quiz
 **For Developers:**
 - [ ] Valid Bearer token in requests
 - [ ] SUPABASE credentials configured
-- [ ] OPENROUTER_API_KEY for AI insights
+- [ ] GEMINI_API_KEY for AI insights
 - [ ] Max 5 recommendations default
 - [ ] Handle new user case
 - [ ] Error handling implemented

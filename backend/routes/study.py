@@ -126,6 +126,24 @@ class StudyPackageResponse(BaseModel):
         }
 
 
+class BatchStudyResponse(BaseModel):
+    """Response for batch study operation"""
+    results: List[StudyPackageResponse]
+    total_topics: int
+    successful: int
+    failed: int
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "results": [],
+                "total_topics": 3,
+                "successful": 3,
+                "failed": 0
+            }
+        }
+
+
 class BatchStudyRequest(BaseModel):
     """Request for studying multiple topics"""
     topics: List[str] = Field(..., min_items=1, max_items=10)
@@ -186,8 +204,8 @@ async def get_study_info():
 @router.post("/", response_model=StudyPackageResponse)
 @limiter.limit("5/minute")
 async def create_study_session(
-    http_request: Request,
-    request: CompleteStudyRequest,
+    request: Request,
+    body: CompleteStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
     """
@@ -246,11 +264,11 @@ async def create_study_session(
     
     try:
         # Validate inputs
-        validated_topic = validate_topic(request.topic, max_length=50)
-        validated_num_questions = validate_num_questions(request.num_questions, min_val=1, max_val=20)
+        validated_topic = validate_topic(body.topic, max_length=50)
+        validated_num_questions = validate_num_questions(body.num_questions, min_val=1, max_val=20)
         
         # Check cache first (if enabled)
-        if request.use_cache:
+        if body.use_cache:
             cached_content = await get_cached_content(
                 topic=validated_topic,
                 content_type='study_package',
@@ -335,8 +353,8 @@ async def create_study_session(
 @router.post("/retry", response_model=StudyPackageResponse)
 @limiter.limit("5/minute")
 async def retry_topic(
-    http_request: Request,
-    request: CompleteStudyRequest,
+    request: Request,
+    body: CompleteStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
     """
@@ -360,7 +378,7 @@ async def retry_topic(
     Requires authentication via JWT token.
     """
     try:
-        if not request.topic or not request.topic.strip():
+        if not body.topic or not body.topic.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Topic cannot be empty"
@@ -368,12 +386,12 @@ async def retry_topic(
         
         # Get authenticated user ID
         user_id = current_user.id
-        topic = request.topic.strip()
+        topic = body.topic.strip()
         
         # Generate new study package
         study_package = await study_topic(
             topic=topic,
-            num_questions=request.num_questions
+            num_questions=body.num_questions
         )
         
         # Record retry event in xp_history with 10 XP
@@ -430,27 +448,27 @@ async def retry_topic(
 @router.post("/generate-notes", response_model=NotesResponse)
 @limiter.limit("5/minute")
 async def create_study_notes(
-    http_request: Request,
-    request: GenerateNotesRequest,
+    request: Request,
+    body: GenerateNotesRequest,
     current_user: dict = Depends(verify_user)
 ):
     """
     Generate AI-powered study notes for a given topic.
     
-    Uses OpenRouter API with Llama or Mixtral models to create
+    Uses Google Gemini API to create
     beginner-friendly summaries and key points.
     
     Requires authentication.
     """
     try:
-        if not request.topic or not request.topic.strip():
+        if not body.topic or not body.topic.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Topic cannot be empty"
             )
         
         # Generate notes using the research agent with fallback
-        notes = await generate_notes_with_fallback(request.topic.strip())
+        notes = await generate_notes_with_fallback(body.topic.strip())
         
         return notes
         
@@ -470,8 +488,8 @@ async def create_study_notes(
 @router.post("/complete", response_model=StudyPackageResponse)
 @limiter.limit("5/minute")
 async def complete_study_workflow(
-    http_request: Request,
-    request: CompleteStudyRequest,
+    request: Request,
+    body: CompleteStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
     """
@@ -487,7 +505,7 @@ async def complete_study_workflow(
     Requires authentication.
     """
     try:
-        if not request.topic or not request.topic.strip():
+        if not body.topic or not body.topic.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Topic cannot be empty"
@@ -495,8 +513,8 @@ async def complete_study_workflow(
         
         # Use Coach Agent to coordinate the complete workflow
         study_package = await study_topic(
-            topic=request.topic.strip(),
-            num_questions=request.num_questions
+            topic=body.topic.strip(),
+            num_questions=body.num_questions
         )
         
         return study_package
@@ -513,11 +531,11 @@ async def complete_study_workflow(
         )
 
 
-@router.post("/batch", response_model=List[StudyPackageResponse])
+@router.post("/batch", response_model=BatchStudyResponse)
 @limiter.limit("5/minute")
 async def batch_study_workflow(
-    http_request: Request,
-    request: BatchStudyRequest,
+    request: Request,
+    body: BatchStudyRequest,
     current_user: dict = Depends(verify_user)
 ):
     """
@@ -531,14 +549,14 @@ async def batch_study_workflow(
     Requires authentication.
     """
     try:
-        if not request.topics or len(request.topics) == 0:
+        if not body.topics or len(body.topics) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Topics list cannot be empty"
             )
         
         # Validate each topic
-        for topic in request.topics:
+        for topic in body.topics:
             if not topic or not topic.strip():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -547,8 +565,8 @@ async def batch_study_workflow(
         
         # Use Coach Agent to process multiple topics in parallel
         study_packages = await study_multiple_topics(
-            topics=[t.strip() for t in request.topics],
-            num_questions=request.num_questions
+            topics=[t.strip() for t in body.topics],
+            num_questions=body.num_questions
         )
         
         return study_packages
@@ -568,8 +586,8 @@ async def batch_study_workflow(
 @router.post("/adaptive-quiz")
 @limiter.limit("5/minute")
 async def generate_adaptive_quiz(
-    http_request: Request,
-    request: AdaptiveQuizRequest,
+    request: Request,
+    body: AdaptiveQuizRequest,
     user_id: str = Depends(get_current_user_id)
 ):
     """
@@ -611,19 +629,19 @@ async def generate_adaptive_quiz(
     """
     try:
         # Validate topic
-        if not request.topic or not request.topic.strip():
+        if not body.topic or not body.topic.strip():
             raise HTTPException(
                 status_code=400,
                 detail="Topic cannot be empty"
             )
         
-        topic = request.topic.strip()
+        topic = body.topic.strip()
         
         # Get adaptive quiz parameters based on user performance
         adaptive_params = await AdaptiveQuizHelper.get_adaptive_quiz_params(
             user_id=user_id,
             topic=topic,
-            user_preference=request.difficulty_preference
+            user_preference=body.difficulty_preference
         )
         
         # Get or generate study notes
@@ -646,7 +664,7 @@ async def generate_adaptive_quiz(
         quiz_data = await AdaptiveQuizAgent.generate_adaptive_quiz_with_fallback(
             notes=notes,
             difficulty=adaptive_params['difficulty'],
-            num_questions=request.num_questions,
+            num_questions=body.num_questions,
             user_context=adaptive_params['user_performance']
         )
         

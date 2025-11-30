@@ -521,7 +521,7 @@ python3 test_adaptive_quiz.py
 
 ```bash
 # Required for quiz generation
-OPENROUTER_API_KEY=your_api_key_here
+GEMINI_API_KEY=your_api_key_here
 
 # Supabase (for user performance data)
 SUPABASE_URL=your_supabase_url

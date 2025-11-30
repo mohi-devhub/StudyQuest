@@ -288,9 +288,39 @@ CREATE TRIGGER on_xp_log_insert
 -- =============================================================================
 -- ENABLE REALTIME FOR NEW TABLES
 -- =============================================================================
-ALTER PUBLICATION supabase_realtime ADD TABLE public.user_topics;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.quiz_scores;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.xp_history;
+-- Skip if tables are already added to realtime publication
+DO $$
+BEGIN
+  -- Add user_topics to realtime if not already added
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'user_topics'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.user_topics;
+  END IF;
+  
+  -- Add quiz_scores to realtime if not already added
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'quiz_scores'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.quiz_scores;
+  END IF;
+  
+  -- Add xp_history to realtime if not already added
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'xp_history'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.xp_history;
+  END IF;
+END $$;
 
 -- =============================================================================
 -- UTILITY VIEWS

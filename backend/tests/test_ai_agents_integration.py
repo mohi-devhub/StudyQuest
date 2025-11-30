@@ -23,7 +23,7 @@ class TestAdaptiveQuizAgent:
     """Test suite for Adaptive Quiz Agent"""
     
     @pytest.mark.asyncio
-    async def test_quiz_generation_easy_difficulty(self):
+    async def test_quiz_generation_easy_difficulty(self, mock_httpx_client):
         """
         Test quiz generation with easy difficulty.
         Validates question structure and difficulty appropriateness.
@@ -69,7 +69,7 @@ class TestAdaptiveQuizAgent:
                 f"Question {i+1} answer should be A, B, C, or D"
     
     @pytest.mark.asyncio
-    async def test_quiz_generation_hard_difficulty(self):
+    async def test_quiz_generation_hard_difficulty(self, mock_httpx_client):
         """
         Test quiz generation with hard difficulty.
         Validates that questions are more complex.
@@ -105,7 +105,7 @@ class TestAdaptiveQuizAgent:
             assert 'explanation' in q, "Hard questions should include explanations"
     
     @pytest.mark.asyncio
-    async def test_quiz_generation_with_fallback(self):
+    async def test_quiz_generation_with_fallback(self, mock_httpx_client):
         """
         Test quiz generation with fallback mechanism.
         Ensures fallback models work if primary fails.
@@ -186,7 +186,7 @@ class TestRecommendationAgent:
     """Test suite for Recommendation Agent"""
     
     @pytest.mark.asyncio
-    async def test_recommendations_with_weak_areas(self):
+    async def test_recommendations_with_weak_areas(self, mock_httpx_client):
         """
         Test recommendation generation for user with weak areas.
         """
@@ -223,7 +223,7 @@ class TestRecommendationAgent:
         assert weak_area_found, "Weak area should be high priority"
     
     @pytest.mark.asyncio
-    async def test_recommendations_with_stale_topics(self):
+    async def test_recommendations_with_stale_topics(self, mock_httpx_client):
         """
         Test recommendation generation for topics needing review.
         """
@@ -253,7 +253,7 @@ class TestRecommendationAgent:
             "Should recommend review or new topics"
     
     @pytest.mark.asyncio
-    async def test_recommendations_for_new_user(self):
+    async def test_recommendations_for_new_user(self, mock_httpx_client):
         """
         Test recommendation generation for user with no progress.
         """
@@ -311,7 +311,7 @@ class TestCoachAgent:
     """Test suite for Coach Agent (workflow coordinator)"""
     
     @pytest.mark.asyncio
-    async def test_complete_study_workflow(self):
+    async def test_complete_study_workflow(self, mock_httpx_client):
         """
         Test complete study workflow: notes + quiz generation.
         """
@@ -344,7 +344,7 @@ class TestCoachAgent:
             assert len(q['options']) == 4
     
     @pytest.mark.asyncio
-    async def test_multiple_topics_workflow(self):
+    async def test_multiple_topics_workflow(self, mock_httpx_client):
         """
         Test processing multiple topics in parallel.
         """
@@ -364,7 +364,7 @@ class TestCoachAgent:
             assert len(result['quiz']) == 2
     
     @pytest.mark.asyncio
-    async def test_study_workflow_with_invalid_topic(self):
+    async def test_study_workflow_with_invalid_topic(self, mocker):
         """
         Test error handling for invalid topics.
         """
@@ -379,7 +379,7 @@ class TestAIResponseQuality:
     """Test AI response quality and consistency"""
     
     @pytest.mark.asyncio
-    async def test_quiz_questions_are_unique(self):
+    async def test_quiz_questions_are_unique(self, mock_httpx_client):
         """
         Test that generated quiz questions are unique (no duplicates).
         """
@@ -410,7 +410,7 @@ class TestAIResponseQuality:
             "All questions should be unique"
     
     @pytest.mark.asyncio
-    async def test_quiz_answers_are_valid(self):
+    async def test_quiz_answers_are_valid(self, mock_httpx_client):
         """
         Test that all quiz answers are valid (A, B, C, or D).
         """
@@ -434,7 +434,7 @@ class TestAIResponseQuality:
                 f"Invalid answer: {q['answer']}"
     
     @pytest.mark.asyncio
-    async def test_response_time_acceptable(self):
+    async def test_response_time_acceptable(self, mock_httpx_client):
         """
         Test that AI responses are generated within acceptable time.
         """
@@ -455,6 +455,7 @@ class TestAIResponseQuality:
         # Should complete within 30 seconds
         assert duration < 30, f"Response took {duration:.2f}s, should be < 30s"
         assert 'questions' in result, "Should return valid result"
+
 
 
 if __name__ == "__main__":

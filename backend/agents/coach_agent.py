@@ -46,25 +46,29 @@ from .quiz_agent import generate_quiz_with_fallback, generate_quiz
 
 load_dotenv()
 
-# OpenRouter LLM configuration
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+# Gemini configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+
+# Configure Gemini
+import google.generativeai as genai
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
-def get_openrouter_llm(model: str = "google/gemini-2.0-flash-exp:free"):
-    """Get configured OpenRouter LLM for CrewAI agents."""
+def get_gemini_llm(model: str = None):
+    """Get configured Gemini model for CrewAI agents."""
     if not CREWAI_AVAILABLE:
-        raise ImportError("CrewAI and LangChain are required for this function. Install with: pip install crewai langchain-openai")
+        raise ImportError("CrewAI and LangChain are required for this function. Install with: pip install crewai langchain-google-genai")
     
-    return ChatOpenAI(
-        model=model,
-        openai_api_key=OPENROUTER_API_KEY,
-        openai_api_base=OPENROUTER_BASE_URL,
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    model_name = model or GEMINI_MODEL
+    
+    return ChatGoogleGenerativeAI(
+        model=model_name,
+        google_api_key=GEMINI_API_KEY,
         temperature=0.7,
-        default_headers={
-            "HTTP-Referer": "http://localhost:8000",
-            "X-Title": "StudyQuest"
-        }
+        max_output_tokens=1000
     )
 
 

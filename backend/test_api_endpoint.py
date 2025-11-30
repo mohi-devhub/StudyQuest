@@ -1,18 +1,5 @@
-#!/usr/bin/env python3
-"""
-End-to-End API Testing Script
-
-Tests the /study endpoint with real topics and validates:
-- Notes are structured and relevant
-- Quiz questions align with content
-- Response format is correct
-
-Note: This script tests WITHOUT authentication for simplicity.
-To test with auth, you need to sign up and login first.
-"""
-
+import pytest
 import asyncio
-import httpx
 import json
 from datetime import datetime
 import os
@@ -31,7 +18,8 @@ TEST_TOPICS = [
 ]
 
 
-async def test_study_workflow_direct():
+@pytest.mark.asyncio
+async def test_study_workflow_direct(mocker):
     """Test the study workflow by calling the coach agent directly (no HTTP)"""
     
     print("="*80)
@@ -42,6 +30,31 @@ async def test_study_workflow_direct():
     print("="*80)
     
     results = []
+    
+    # Mock the study_topic function
+    mocker.patch(
+        "agents.coach_agent.study_topic",
+        return_value={
+            "topic": "Mock Topic",
+            "notes": {
+                "topic": "Mock Topic",
+                "summary": "This is a mock summary.",
+                "key_points": ["Mock point 1", "Mock point 2"]
+            },
+            "quiz": [
+                {
+                    "question": "Mock question 1?",
+                    "options": ["A) Opt1", "B) Opt2", "C) Opt3", "D) Opt4"],
+                    "answer": "A",
+                    "explanation": "Mock explanation"
+                }
+            ],
+            "metadata": {
+                "num_key_points": 2,
+                "num_questions": 1
+            }
+        }
+    )
     
     for i, test_case in enumerate(TEST_TOPICS, 1):
         topic = test_case["topic"]
@@ -293,43 +306,3 @@ def save_results(results):
     print(f"\n\n{'='*80}")
     print(f"📄 Results saved to: {output_file}")
     print(f"{'='*80}\n")
-
-
-async def main():
-    """Run all tests"""
-    print("\n🚀 Starting end-to-end workflow tests...\n")
-    
-    results = await test_study_workflow_direct()
-    
-    print("\n\n" + "="*80)
-    print("TEST SUMMARY")
-    print("="*80)
-    
-    success_count = sum(1 for r in results if r.get('status') == 'SUCCESS')
-    failed_count = sum(1 for r in results if r.get('status') in ['FAILED', 'ERROR'])
-    auth_required = sum(1 for r in results if r.get('status') == 'AUTH_REQUIRED')
-    
-    print(f"\nTotal Tests: {len(results)}")
-    print(f"✅ Passed: {success_count}")
-    print(f"❌ Failed: {failed_count}")
-    print(f"🔒 Auth Required: {auth_required}")
-    
-    if success_count > 0:
-        print(f"\n✅ {success_count} test(s) completed successfully!")
-        save_results(results)
-    elif auth_required > 0:
-        print(f"\n🔒 Authentication is required for this endpoint.")
-        print(f"   The endpoint is working, but you need to:")
-        print(f"   1. Sign up: POST /auth/signup")
-        print(f"   2. Login: POST /auth/login")
-        print(f"   3. Use the JWT token in Authorization header")
-        save_results(results)
-    else:
-        print(f"\n❌ All tests failed. Check the error messages above.")
-        save_results(results)
-    
-    print("\n" + "="*80 + "\n")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

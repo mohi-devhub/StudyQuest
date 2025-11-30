@@ -3,11 +3,11 @@ Study Recommendation Agent - Suggests personalized learning paths
 Analyzes user progress, identifies weak areas, and recommends next topics
 """
 
-import httpx
+import google.generativeai as genai
 import os
 import json
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from utils.logger import get_logger
 from utils.ai_cache import get_recommendation_cache
@@ -17,8 +17,12 @@ load_dotenv()
 logger = get_logger(__name__)
 recommendation_cache = get_recommendation_cache()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
+
+# Configure Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
 class RecommendationAgent:
@@ -37,6 +41,22 @@ class RecommendationAgent:
     STALE_DAYS = 7  # Topics not studied in this many days need review
     MIN_ATTEMPTS_FOR_MASTERY = 3  # Number of attempts before considering mastered
     
+    @staticmethod
+    def is_pdf_quiz_topic(topic: str) -> bool:
+        """
+        Check if a topic is from a PDF quiz upload.
+        PDF quiz topics follow the pattern: "Quiz from {filename}"
+        
+        Args:
+            topic: Topic name to check
+            
+        Returns:
+            True if topic is from PDF quiz, False otherwise
+        """
+        if not topic:
+            return False
+        return topic.startswith("Quiz from ")
+    
     # XP estimation factors
     BASE_XP_ESTIMATE = 150  # Average XP per quiz
     DIFFICULTY_MULTIPLIERS = {
@@ -48,8 +68,8 @@ class RecommendationAgent:
     
     # AI Models
     MODELS = {
-        'primary': "google/gemini-2.0-flash-exp:free",
-        'fallback': "meta-llama/llama-3.2-3b-instruct:free"
+        'primary': "models/gemini-2.0-flash",
+        'fallback': "models/gemini-flash-latest"
     }
     
     @staticmethod
@@ -76,6 +96,10 @@ class RecommendationAgent:
             
             # Skip if topic is missing or score is None/invalid
             if not topic or score is None:
+                continue
+            
+            # Skip PDF quiz topics
+            if RecommendationAgent.is_pdf_quiz_topic(topic):
                 continue
             
             # Ensure score is numeric
@@ -131,7 +155,7 @@ class RecommendationAgent:
             List of stale topics needing review
         """
         stale_topics = []
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         stale_threshold = current_time - timedelta(days=RecommendationAgent.STALE_DAYS)
         
         for attempt in user_progress:
@@ -140,6 +164,10 @@ class RecommendationAgent:
             avg_score = attempt.get('avg_score', 0)
             
             if not topic or not last_attempt:
+                continue
+            
+            # Skip PDF quiz topics
+            if RecommendationAgent.is_pdf_quiz_topic(topic):
                 continue
             
             # Parse last_attempt (assumes ISO format)
@@ -196,8 +224,12 @@ class RecommendationAgent:
                 "Cloud Computing"
             ]
         
-        # Get topics user has already attempted
-        attempted_topics = {attempt.get('topic') for attempt in user_progress if attempt.get('topic')}
+        # Get topics user has already attempted (excluding PDF quiz topics)
+        attempted_topics = {
+            attempt.get('topic') 
+            for attempt in user_progress 
+            if attempt.get('topic') and not RecommendationAgent.is_pdf_quiz_topic(attempt.get('topic'))
+        }
         
         # Find new topics
         new_topics = []
@@ -339,13 +371,6 @@ class RecommendationAgent:
         Returns:
             Enhanced recommendations with AI-generated insights
         """
-        if not OPENROUTER_API_KEY:
-            # Return basic recommendations without AI enhancement
-            return {
-                'recommendations': recommendations,
-                'ai_enhanced': False
-            }
-        
         # Build context for AI
         total_attempts = sum(p.get('total_attempts', 0) for p in user_progress)
         avg_overall_score = (
@@ -400,68 +425,49 @@ Format as JSON:
             return cached_response
         
         try:
-            headers = {
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "http://localhost:8000",
-                "X-Title": "StudyQuest Recommendations"
-            }
+            # Initialize the model
+            model_instance = genai.GenerativeModel(
+                model_name=RecommendationAgent.MODELS['primary'],
+                generation_config={
+                    "temperature": 0.7,
+                    "top_p": 0.95,
+                    "top_k": 40,
+                    "max_output_tokens": 500,
+                    "response_mime_type": "application/json"
+                },
+                system_instruction="You are an expert educational advisor providing personalized learning recommendations."
+            )
             
-            payload = {
-                "model": RecommendationAgent.MODELS['primary'],
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are an expert educational advisor providing personalized learning recommendations."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "temperature": 0.7,
-                "max_tokens": 500,
-                "response_format": {"type": "json_object"}
-            }
+            # Generate content
+            response = model_instance.generate_content(prompt)
+            ai_insights = json.loads(response.text)
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    OPENROUTER_BASE_URL,
-                    headers=headers,
-                    json=payload
-                )
-                response.raise_for_status()
-                
-                data = response.json()
-                content = data["choices"][0]["message"]["content"]
-                ai_insights = json.loads(content)
-                
-                result = {
-                    'recommendations': recommendations,
-                    'ai_enhanced': True,
-                    'ai_insights': ai_insights,
-                    'overall_stats': {
-                        'total_attempts': total_attempts,
-                        'avg_score': round(avg_overall_score, 1),
-                        'topics_studied': len(user_progress)
-                    }
+            result = {
+                'recommendations': recommendations,
+                'ai_enhanced': True,
+                'ai_insights': ai_insights,
+                'overall_stats': {
+                    'total_attempts': total_attempts,
+                    'avg_score': round(avg_overall_score, 1),
+                    'topics_studied': len(user_progress)
                 }
-                
-                # Cache the result
-                recommendation_cache.set(
-                    prompt,
-                    RecommendationAgent.MODELS['primary'],
-                    result,
-                    **cache_key_params
-                )
-                
-                logger.info(
-                    "Recommendations generated and cached",
-                    cache_hit=False,
-                    recommendations_count=len(recommendations)
-                )
-                
-                return result
+            }
+            
+            # Cache the result
+            recommendation_cache.set(
+                prompt,
+                RecommendationAgent.MODELS['primary'],
+                result,
+                **cache_key_params
+            )
+            
+            logger.info(
+                "Recommendations generated and cached",
+                cache_hit=False,
+                recommendations_count=len(recommendations)
+            )
+            
+            return result
         
         except Exception as e:
             logger.warning("AI enhancement failed for recommendations", error=str(e), recommendations_count=len(recommendations))
@@ -504,15 +510,34 @@ Format as JSON:
             weak_areas, stale_topics, new_topics, max_recommendations
         )
         
+        # Calculate overall stats
+        total_attempts = sum(p.get('quizzes_completed', 0) for p in user_progress)
+        avg_score = (
+            sum(p.get('avg_score', 0) for p in user_progress) / len(user_progress)
+            if user_progress else 0
+        )
+        topics_studied = len(user_progress)
+        
+        overall_stats = {
+            'total_attempts': total_attempts,
+            'avg_score': round(avg_score, 1),
+            'topics_studied': topics_studied
+        }
+        
         # Enhance with AI if requested
         if include_ai_insights and recommendations:
-            return await RecommendationAgent.generate_ai_recommendations(
+            result = await RecommendationAgent.generate_ai_recommendations(
                 user_progress, recommendations
             )
+            # Add overall_stats to AI result if not already present
+            if 'overall_stats' not in result:
+                result['overall_stats'] = overall_stats
+            return result
         else:
             return {
                 'recommendations': recommendations,
                 'ai_enhanced': False,
+                'overall_stats': overall_stats,
                 'analysis': {
                     'weak_areas_count': len(weak_areas),
                     'stale_topics_count': len(stale_topics),

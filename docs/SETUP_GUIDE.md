@@ -24,7 +24,7 @@ Complete guide to set up StudyQuest locally or deploy to production.
 
 ### Required Accounts
 - **Supabase Account** - [supabase.com](https://supabase.com)
-- **OpenRouter API Key** - [openrouter.ai](https://openrouter.ai)
+- **Google Gemini API Key** - [makersuite.google.com](https://makersuite.google.com/app/apikey)
 
 ---
 
@@ -46,7 +46,8 @@ SUPABASE_KEY=your_supabase_anon_key  # Use ANON key, NOT service role
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key  # Only for admin operations
 
 # API Configuration
-OPENROUTER_API_KEY=your_openrouter_api_key
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=models/gemini-2.0-flash
 
 # Security Configuration
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
@@ -273,7 +274,8 @@ railway up
 ```bash
 SUPABASE_URL=your_production_supabase_url
 SUPABASE_KEY=your_production_anon_key
-OPENROUTER_API_KEY=your_api_key
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=models/gemini-2.0-flash
 ALLOWED_ORIGINS=https://your-domain.vercel.app
 ENVIRONMENT=production
 ```
@@ -455,7 +457,7 @@ curl -X POST http://localhost:8000/study/generate \
    - Create multiple test users
 
 2. **Configure AI Models**
-   - Adjust OpenRouter models in backend/routes
+   - Adjust Gemini models in backend/agents
    - Tune prompt templates
    - Test different model parameters
 
