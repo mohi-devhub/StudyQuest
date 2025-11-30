@@ -7,13 +7,15 @@ python-multipart==0.0.6
 pydantic[email]>=2.10.0
 
 # AI - Google Gemini
-google-generativeai>=0.8.0,<0.9.0
+# Note: Pinned to 0.3.x for compatibility with langchain-google-genai
+google-generativeai>=0.3.0,<0.4.0
 
 # Optional: LangChain (for CrewAI integration)
-langchain==0.0.340
-langchain-google-genai>=0.0.5
-langchain-core>=0.1.7,<0.2
-langchain-community
+# Commented out as not currently used - uncomment if needed
+# langchain==0.0.340
+# langchain-google-genai>=0.0.5
+# langchain-core>=0.1.7,<0.2
+# langchain-community
 
 # HTTP Client
 httpx==0.24.1

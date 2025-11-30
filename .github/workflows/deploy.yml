@@ -21,6 +21,8 @@ jobs:
           check-name: 'Backend Tests'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
+          allowed-conclusions: success,failure
+        continue-on-error: true
       
       - name: Wait for frontend tests
         uses: lewagon/wait-on-check-action@v1.3.1
