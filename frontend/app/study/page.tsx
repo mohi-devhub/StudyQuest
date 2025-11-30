@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/useAuth";
@@ -18,7 +18,7 @@ interface StudyNotes {
   tips: string[];
 }
 
-export default function StudyPage() {
+function StudyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId } = useAuth();
@@ -373,5 +373,17 @@ export default function StudyPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function StudyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-2xl font-mono">LOADING...</div>
+      </div>
+    }>
+      <StudyPageContent />
+    </Suspense>
   );
 }
