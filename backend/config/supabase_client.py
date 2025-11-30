@@ -20,12 +20,20 @@ supabase: Client = None
 # Check if we're in a test environment
 IS_TEST_ENV = os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("CI") == "true"
 
-if SUPABASE_URL and SUPABASE_KEY:
+if IS_TEST_ENV:
+    # In test environment, don't initialize real Supabase client
+    # Tests should mock the client as needed
+    supabase = None
+elif SUPABASE_URL and SUPABASE_KEY:
     # Create client with connection pooling configuration
     # Note: Connection pooling is handled internally by the Supabase client
     # The pool configuration variables are kept for future use if needed
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-elif not IS_TEST_ENV:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Warning: Failed to initialize Supabase client: {e}")
+        supabase = None
+else:
     # Only raise error in non-test environments
     raise ValueError(
         "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
@@ -38,7 +46,10 @@ def get_supabase() -> Client:
     
     Returns:
         Client: Supabase client instance
+    
+    Raises:
+        RuntimeError: If client is not initialized and not in test mode
     """
-    if supabase is None:
+    if supabase is None and not IS_TEST_ENV:
         raise RuntimeError("Supabase client is not initialized")
     return supabase
