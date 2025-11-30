@@ -97,10 +97,10 @@ export default function QuizPage() {
       // Otherwise generate new quiz from the notes
       // Get the session token
       const {
-        data: { session },
+        data: { session: authSession },
       } = await supabase.auth.getSession()
 
-      if (!session?.access_token) {
+      if (!authSession?.access_token) {
         setError('Authentication required. Please log in again.')
         return
       }
@@ -110,7 +110,7 @@ export default function QuizPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${authSession.access_token}`
         },
         body: JSON.stringify({
           topic: session.topic,
