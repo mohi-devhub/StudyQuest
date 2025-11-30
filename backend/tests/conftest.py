@@ -1,7 +1,6 @@
 import pytest
 import httpx
 import json
-from pytest_mock import mocker
 
 @pytest.fixture
 def mock_httpx_client(mocker):
