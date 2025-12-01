@@ -31,13 +31,19 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLO
     "http://localhost:3001",
     "https://studyquest.vercel.app",
     "https://studyquest-git-main-mohi-devhubs-projects.vercel.app",
+    "https://study-quest-mohi-devhubs-projects.vercel.app",
+    "https://study-quest-git-main-mohi-devhubs-projects.vercel.app",
 ]
+
+# Filter out empty strings from ALLOWED_ORIGINS
+ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel preview deployments
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
