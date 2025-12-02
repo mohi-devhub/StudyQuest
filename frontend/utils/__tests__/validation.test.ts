@@ -4,6 +4,7 @@ import {
   validateEmail,
   validatePassword,
   validateUsername,
+  validateName,
 } from "../validation";
 
 describe("Validation Utilities", () => {
@@ -129,6 +130,39 @@ describe("Validation Utilities", () => {
         error:
           "Username can only contain letters, numbers, hyphens, and underscores",
       });
+    });
+  });
+
+  describe("validateName", () => {
+    it("validates correct name", () => {
+      expect(validateName("John Doe")).toEqual({ valid: true });
+    });
+
+    it("rejects empty name", () => {
+      expect(validateName("")).toEqual({
+        valid: false,
+        error: "Name is required",
+      });
+    });
+
+    it("rejects whitespace-only name", () => {
+      expect(validateName("   ")).toEqual({
+        valid: false,
+        error: "Name is required",
+      });
+    });
+
+    it("rejects name that is too long", () => {
+      const longName = "a".repeat(101);
+      expect(validateName(longName)).toEqual({
+        valid: false,
+        error: "Name must be 100 characters or less",
+      });
+    });
+
+    it("validates name with exactly 100 characters", () => {
+      const maxName = "a".repeat(100);
+      expect(validateName(maxName)).toEqual({ valid: true });
     });
   });
 });

@@ -36,6 +36,26 @@ export function validatePDFFile(file: File): {
 }
 
 /**
+ * Validate name for waitlist
+ */
+export function validateName(name: string): {
+  valid: boolean;
+  error?: string;
+} {
+  const trimmedName = name.trim();
+  
+  if (!trimmedName) {
+    return { valid: false, error: "Name is required" };
+  }
+
+  if (name.length > 100) {
+    return { valid: false, error: "Name must be 100 characters or less" };
+  }
+
+  return { valid: true };
+}
+
+/**
  * Validate email format
  */
 export function validateEmail(email: string): {
