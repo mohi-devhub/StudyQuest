@@ -157,7 +157,10 @@ Key Points:
     
     # Step 3: Generate quiz questions
     logger.debug("Generating quiz questions", topic=topic, num_questions=num_questions)
-    quiz = await generate_quiz_with_fallback(formatted_notes, num_questions)
+    quiz_result = await generate_quiz_with_fallback(formatted_notes, num_questions)
+    
+    # Extract questions list from dict
+    quiz = quiz_result.get("questions", []) if isinstance(quiz_result, dict) else quiz_result
     
     logger.info("Quiz questions generated", topic=topic, questions_count=len(quiz))
     
