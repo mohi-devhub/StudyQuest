@@ -318,7 +318,7 @@ class RecommendationHelper:
             user_progress = await RecommendationHelper.fetch_user_progress(user_id)
             xp_history = await RecommendationHelper.fetch_xp_history(user_id)
             learning_velocity = await RecommendationHelper.calculate_learning_velocity(user_id)
-            all_topics = await RecommendationHelper.get_all_topics_from_progress()
+            all_topics = await RecommendationHelper.get_all_topics_from_progress(user_id)
             
             # Format user context
             user_context = RecommendationHelper.format_user_context(
