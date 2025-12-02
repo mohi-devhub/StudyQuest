@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import { supabase } from "@/lib/supabase";
 
 interface UseRealtimeXPProps {
@@ -20,6 +21,14 @@ interface UnlockedBadge {
   symbol: string;
   tier: number;
   unlocked_at: string;
+}
+
+interface LeaderboardEntry {
+  user_id: string;
+  username: string;
+  total_xp: number;
+  level: number;
+  rank?: number;
 }
 
 export const useRealtimeXP = ({
@@ -150,7 +159,7 @@ export const useRealtimeXP = ({
 export const useRealtimeLeaderboard = ({
   userId,
 }: UseRealtimeLeaderboardProps = {}) => {
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -175,7 +184,7 @@ export const useRealtimeLeaderboard = ({
     const fetchLeaderboard = async () => {
       const { data, error } = await supabase
         .from("users")
-        .select("id:user_id, username, total_xp, level")
+        .select("user_id, username, total_xp, level")
         .order("total_xp", { ascending: false })
         .limit(10);
 
@@ -184,8 +193,11 @@ export const useRealtimeLeaderboard = ({
         return;
       }
 
-      const rankedData = (data || []).map((user, index) => ({
-        ...user,
+      const rankedData: LeaderboardEntry[] = (data || []).map((user, index) => ({
+        user_id: user.user_id,
+        username: user.username,
+        total_xp: user.total_xp,
+        level: user.level,
         rank: index + 1,
       }));
 

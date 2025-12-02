@@ -4,7 +4,7 @@
  */
 
 interface LogContext {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined | object;
 }
 
 interface LogEntry {

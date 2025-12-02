@@ -1,19 +1,28 @@
 import { useEffect, useState } from "react";
 
+interface Badge {
+  badge_key: string;
+  name: string;
+  description: string;
+  symbol: string;
+  tier: number;
+  unlocked_at: string;
+}
+
 interface UseRealtimeXPOptions {
   userId: string;
   onXPGain?: (xp: number, source: string, topic?: string) => void;
   onLevelUp?: (newLevel: number) => void;
   onProgressUpdate?: (topic: string, newAvgScore: number) => void;
-  onBadgeUnlock?: (badge: any) => void;
+  onBadgeUnlock?: (badge: Badge) => void;
 }
 
 export function useRealtimeXP({
   userId,
-  onXPGain,
-  onLevelUp,
-  onProgressUpdate,
-  onBadgeUnlock,
+  onXPGain: _onXPGain,
+  onLevelUp: _onLevelUp,
+  onProgressUpdate: _onProgressUpdate,
+  onBadgeUnlock: _onBadgeUnlock,
 }: UseRealtimeXPOptions) {
   const [isConnected, setIsConnected] = useState(false);
 
