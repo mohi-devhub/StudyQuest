@@ -24,6 +24,10 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -70,6 +74,62 @@ export default function ProfilePage() {
     } catch (error) {
       logger.error("Logout error", { userId, error: String(error) });
       setLoggingOut(false);
+    }
+  };
+
+  const handleEditUsername = () => {
+    setNewUsername(profile?.username || "");
+    setUsernameError(null);
+    setIsEditingUsername(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingUsername(false);
+    setNewUsername("");
+    setUsernameError(null);
+  };
+
+  const handleSaveUsername = async () => {
+    if (!userId || !newUsername.trim()) return;
+
+    const trimmedUsername = newUsername.trim();
+
+    // Validate username
+    if (trimmedUsername.length < 3) {
+      setUsernameError("Username must be at least 3 characters");
+      return;
+    }
+
+    if (trimmedUsername.length > 20) {
+      setUsernameError("Username must be 20 characters or less");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
+      setUsernameError("Username can only contain letters, numbers, and underscores");
+      return;
+    }
+
+    setSavingUsername(true);
+    setUsernameError(null);
+
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ username: trimmedUsername })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      // Update local state
+      setProfile((prev) => prev ? { ...prev, username: trimmedUsername } : null);
+      setIsEditingUsername(false);
+      setNewUsername("");
+    } catch (error: any) {
+      logger.error("Error updating username", { userId, error: String(error) });
+      setUsernameError(error.message || "Failed to update username");
+    } finally {
+      setSavingUsername(false);
     }
   };
 
@@ -130,11 +190,56 @@ export default function ProfilePage() {
           {/* User Info Section */}
           <div className="p-6 border-b border-terminal-gray">
             <div className="flex items-center justify-between mb-6">
-              <div>
+              <div className="flex-1">
                 <div className="text-sm text-terminal-gray mb-1">
                   // USERNAME
                 </div>
-                <div className="text-2xl font-bold">{profile?.username}</div>
+                {isEditingUsername ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveUsername();
+                        if (e.key === "Escape") handleCancelEdit();
+                      }}
+                      className="w-full max-w-xs bg-terminal-black border border-terminal-white px-3 py-2 text-terminal-white focus:outline-none focus:ring-1 focus:ring-terminal-white"
+                      placeholder="Enter new username"
+                      maxLength={20}
+                      autoFocus
+                    />
+                    {usernameError && (
+                      <div className="text-red-400 text-xs">{usernameError}</div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveUsername}
+                        disabled={savingUsername}
+                        className="px-4 py-1 border border-terminal-white text-sm hover:bg-terminal-white hover:text-terminal-black transition-colors disabled:opacity-50"
+                      >
+                        {savingUsername ? "SAVING..." : "SAVE"}
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        disabled={savingUsername}
+                        className="px-4 py-1 border border-terminal-gray text-terminal-gray text-sm hover:border-terminal-white hover:text-terminal-white transition-colors disabled:opacity-50"
+                      >
+                        CANCEL
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl font-bold">{profile?.username}</div>
+                    <button
+                      onClick={handleEditUsername}
+                      className="text-terminal-gray hover:text-terminal-white transition-colors text-sm border border-terminal-gray hover:border-terminal-white px-2 py-1"
+                    >
+                      EDIT
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="border border-terminal-white px-4 py-2">
                 <div className="text-terminal-gray text-xs">LEVEL</div>
