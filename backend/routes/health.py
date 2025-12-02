@@ -99,7 +99,7 @@ async def _check_gemini() -> Dict[str, Any]:
         import google.generativeai as genai
         
         gemini_api_key = os.getenv("GEMINI_API_KEY")
-        gemini_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        gemini_model = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash")
         
         if not gemini_api_key:
             return {
