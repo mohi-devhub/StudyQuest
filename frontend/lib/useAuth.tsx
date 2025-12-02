@@ -51,6 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, username: string) => {
+    // Get the current origin for redirect URL
+    const redirectUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/login`
+      : 'https://study-quest-mohi-devhubs-projects.vercel.app/login';
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -58,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: {
           username,
         },
+        emailRedirectTo: redirectUrl,
       },
     });
     if (error) throw error;

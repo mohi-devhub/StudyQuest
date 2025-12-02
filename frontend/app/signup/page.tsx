@@ -44,10 +44,7 @@ export default function SignupPage() {
     try {
       await signUp(email, password, username);
       setSuccess(true);
-      // Redirect to dashboard after successful signup
-      setTimeout(() => {
-        router.replace("/");
-      }, 2000);
+      // User needs to confirm email before logging in
     } catch (err: any) {
       setError(err.message || "Failed to create account");
     } finally {
@@ -63,12 +60,21 @@ export default function SignupPage() {
           animate={{ opacity: 1, scale: 1 }}
           className="border border-white p-8 max-w-md w-full text-center"
         >
-          <div className="text-4xl mb-4">✓</div>
-          <h2 className="text-2xl font-bold mb-4">// ACCOUNT_CREATED</h2>
+          <div className="text-4xl mb-4">✉️</div>
+          <h2 className="text-2xl font-bold mb-4">// CHECK_YOUR_EMAIL</h2>
           <p className="text-gray-400 mb-6">
-            Your StudyQuest account has been created successfully.
+            We've sent a confirmation link to your email address.
+            Please check your inbox and click the link to activate your account.
           </p>
-          <p className="text-sm text-gray-500">Redirecting to dashboard...</p>
+          <p className="text-sm text-gray-500 mb-4">
+            Don't see it? Check your spam folder.
+          </p>
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full border border-white py-3 hover:bg-white hover:text-black transition-all"
+          >
+            GO TO LOGIN →
+          </button>
         </motion.div>
       </div>
     );
