@@ -59,24 +59,30 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/signup", "/landing"];
-  const isPublicRoute = publicRoutes.some((route) =>
-    req.nextUrl.pathname.startsWith(route),
+  // Auth-only routes (login/signup) - redirect authenticated users away
+  const authRoutes = ["/login", "/signup"];
+  const isAuthRoute = authRoutes.some((route) =>
+    req.nextUrl.pathname === route || req.nextUrl.pathname.startsWith(route + "/"),
   );
 
+  // Public routes that don't require authentication (includes root for landing page)
+  const publicRoutes = ["/", "/landing"];
+  const isPublicRoute = 
+    req.nextUrl.pathname === "/" || 
+    publicRoutes.some((route) => req.nextUrl.pathname.startsWith(route + "/"));
+
   // If user is not authenticated and trying to access protected route
-  if (!session && !isPublicRoute) {
+  if (!session && !isPublicRoute && !isAuthRoute) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirectedFrom", req.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If user is authenticated and trying to access login/signup
-  if (session && isPublicRoute) {
+  // If user is authenticated and trying to access login/signup, redirect to dashboard
+  if (session && isAuthRoute) {
     const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/";
+    redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);
   }
 
