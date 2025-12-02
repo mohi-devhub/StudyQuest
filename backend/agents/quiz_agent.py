@@ -100,15 +100,23 @@ Make sure:
                 "top_p": 0.95,
                 "top_k": 40,
                 "max_output_tokens": 2000,
-                "response_mime_type": "application/json"
             }
         )
         
         # Generate content
         response = model_instance.generate_content(prompt)
         
-        # Parse the JSON content
-        parsed_content = json.loads(response.text)
+        # Parse the JSON content - handle markdown code blocks
+        response_text = response.text.strip()
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            response_text = "\n".join(lines)
+        
+        parsed_content = json.loads(response_text)
         
         # Handle both direct array and object with array
         if isinstance(parsed_content, list):

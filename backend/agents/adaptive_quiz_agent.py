@@ -262,7 +262,6 @@ Make sure:
                     "top_p": 0.95,
                     "top_k": 40,
                     "max_output_tokens": 2500,
-                    "response_mime_type": "application/json"
                 },
                 system_instruction=f"You are an expert educational content creator specializing in {difficulty}-level quiz questions. Generate questions that accurately reflect {difficulty} difficulty."
             )
@@ -270,8 +269,17 @@ Make sure:
             # Generate content
             response = model_instance.generate_content(prompt)
             
-            # Parse the JSON content
-            parsed_content = json.loads(response.text)
+            # Parse the JSON content - handle markdown code blocks
+            response_text = response.text.strip()
+            if response_text.startswith("```"):
+                lines = response_text.split("\n")
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                response_text = "\n".join(lines)
+            
+            parsed_content = json.loads(response_text)
             
             # Extract questions
             if "questions" in parsed_content:

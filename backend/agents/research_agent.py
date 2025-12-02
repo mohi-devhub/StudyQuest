@@ -78,15 +78,24 @@ Make sure each bullet point is clear, concise, and easy to understand for someon
                 "top_p": 0.95,
                 "top_k": 40,
                 "max_output_tokens": 1000,
-                "response_mime_type": "application/json"
             }
         )
         
         # Generate content
         response = model_instance.generate_content(prompt)
         
-        # Parse the JSON response
-        parsed_content = json.loads(response.text)
+        # Parse the JSON response - handle markdown code blocks
+        response_text = response.text.strip()
+        if response_text.startswith("```"):
+            # Remove markdown code block markers
+            lines = response_text.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            response_text = "\n".join(lines)
+        
+        parsed_content = json.loads(response_text)
         
         return {
             "topic": topic,

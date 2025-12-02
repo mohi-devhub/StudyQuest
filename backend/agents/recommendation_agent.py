@@ -433,14 +433,24 @@ Format as JSON:
                     "top_p": 0.95,
                     "top_k": 40,
                     "max_output_tokens": 500,
-                    "response_mime_type": "application/json"
                 },
                 system_instruction="You are an expert educational advisor providing personalized learning recommendations."
             )
             
             # Generate content
             response = model_instance.generate_content(prompt)
-            ai_insights = json.loads(response.text)
+            
+            # Parse the JSON content - handle markdown code blocks
+            response_text = response.text.strip()
+            if response_text.startswith("```"):
+                lines = response_text.split("\n")
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                response_text = "\n".join(lines)
+            
+            ai_insights = json.loads(response_text)
             
             result = {
                 'recommendations': recommendations,
