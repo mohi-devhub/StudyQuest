@@ -78,7 +78,7 @@ function StudyPageContent() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/study`, {
+      const response = await fetch(`${API_URL}/study/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
