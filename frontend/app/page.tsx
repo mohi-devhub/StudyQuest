@@ -451,7 +451,7 @@ export default function Dashboard() {
                 // AVG_SCORE
               </div>
               <div className="text-3xl font-bold">
-                {recommendations.overall_stats.avg_score.toFixed(1)}%
+                {(recommendations.overall_stats?.avg_score ?? 0).toFixed(1)}%
               </div>
             </div>
             <div className="border border-terminal-white p-4">

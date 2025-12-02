@@ -82,7 +82,7 @@ export default function RecommendedCard({
           <div className="border border-terminal-gray p-3">
             <div className="text-terminal-gray text-xs mb-1">// CURRENT_SCORE</div>
             <div className="text-xl font-bold">
-              {recommendation.current_score !== null
+              {recommendation.current_score !== null && recommendation.current_score !== undefined
                 ? `${recommendation.current_score.toFixed(1)}%`
                 : "[NEW]"}
             </div>

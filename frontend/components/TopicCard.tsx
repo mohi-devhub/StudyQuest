@@ -64,7 +64,7 @@ export default function TopicCard({ topic, delay = 0 }: TopicCardProps) {
           <div
             className={`text-3xl font-bold ${getScoreColor(topic.avg_score)}`}
           >
-            {topic.avg_score.toFixed(1)}%
+            {(topic.avg_score ?? 0).toFixed(1)}%
           </div>
         </div>
 

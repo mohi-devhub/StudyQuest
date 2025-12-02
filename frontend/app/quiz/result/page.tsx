@@ -128,7 +128,7 @@ function ResultContent() {
 
         {/* Score Display */}
         <div className="border-2 border-terminal-white p-12 mb-8 text-center">
-          <div className="text-8xl font-bold mb-6">{score.toFixed(0)}%</div>
+          <div className="text-8xl font-bold mb-6">{(score ?? 0).toFixed(0)}%</div>
           <div className="text-3xl mb-4">
             {correct} / {total} Correct
           </div>
@@ -156,7 +156,7 @@ function ResultContent() {
             <div className="flex justify-between">
               <span className="text-terminal-gray">Success Rate:</span>
               <span className={`font-mono ${performance.color}`}>
-                {score.toFixed(1)}%
+                {(score ?? 0).toFixed(1)}%
               </span>
             </div>
             {xpEarned !== null && (

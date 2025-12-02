@@ -83,7 +83,7 @@ export default function XPProgressBar({
 
           {/* Percentage text */}
           <div className="absolute inset-0 flex items-center justify-center text-xs font-bold mix-blend-difference">
-            {xpProgress.toFixed(1)}%
+            {(xpProgress ?? 0).toFixed(1)}%
           </div>
         </div>
 

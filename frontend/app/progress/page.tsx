@@ -278,7 +278,7 @@ export default function ProgressDashboard() {
           <div className="border border-gray-700 p-4">
             <div className="text-gray-500 text-xs mb-2">// AVG ACCURACY</div>
             <div className="text-2xl font-bold">
-              {stats?.avg_best_score.toFixed(1) || 0}%
+              {(stats?.avg_best_score ?? 0).toFixed(1)}%
             </div>
             <div className="text-xs text-gray-500 mt-1">BEST SCORES</div>
           </div>
@@ -364,12 +364,12 @@ export default function ProgressDashboard() {
 
                   {/* Latest Score */}
                   <div className="col-span-1 text-right text-gray-400">
-                    {topic.score.toFixed(1)}%
+                    {(topic.score ?? 0).toFixed(1)}%
                   </div>
 
                   {/* Best Score */}
                   <div className="col-span-2 text-right font-bold">
-                    {topic.best_score.toFixed(1)}%
+                    {(topic.best_score ?? 0).toFixed(1)}%
                   </div>
 
                   {/* Attempts */}

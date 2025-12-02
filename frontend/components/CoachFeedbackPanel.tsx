@@ -140,7 +140,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
                     </div>
                     <div className="text-right ml-4">
                       <div className="font-bold font-mono">
-                        {topic.score.toFixed(0)}%
+                        {(topic.score ?? 0).toFixed(0)}%
                       </div>
                       <div className="text-gray-600 text-xs">
                         {topic.attempts} attempts
