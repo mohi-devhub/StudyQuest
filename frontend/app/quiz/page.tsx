@@ -208,7 +208,7 @@ export default function QuizPage() {
       }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const response = await fetch(`${apiUrl}/quiz`, {
+      const response = await fetch(`${apiUrl}/quiz/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
