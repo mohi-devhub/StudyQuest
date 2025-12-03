@@ -224,8 +224,14 @@ export default function QuizPage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail?.message || 'Failed to generate quiz')
+        let errorMessage = 'Failed to generate quiz'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.detail?.message || errorData.detail || JSON.stringify(errorData)
+        } catch {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()

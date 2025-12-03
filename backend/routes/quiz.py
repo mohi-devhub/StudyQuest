@@ -67,7 +67,7 @@ class QuizQuestion(BaseModel):
     question: str
     options: List[str]
     answer: str
-    explanation: str
+    explanation: Optional[str] = ""
 
 
 class QuizResponse(BaseModel):
