@@ -106,7 +106,7 @@ class SimpleQuizRequest(BaseModel):
     topic: str = Field(..., min_length=1, max_length=50, description="Topic name (max 50 chars)")
     num_questions: int = Field(5, ge=1, le=20, description="Number of questions")
     difficulty: str = Field("medium", description="Difficulty level: easy, medium, or hard")
-    user_id: str = Field(..., description="User ID for tracking")
+    user_id: Optional[str] = Field(None, description="User ID for tracking (optional, extracted from auth token)")
     use_cache: bool = Field(True, description="Use cached quiz if available")
     
     class Config:
@@ -115,7 +115,6 @@ class SimpleQuizRequest(BaseModel):
                 "topic": "Python Functions",
                 "num_questions": 5,
                 "difficulty": "medium",
-                "user_id": "demo_user",
                 "use_cache": True
             }
         }
@@ -275,13 +274,16 @@ async def generate_simple_quiz(
         )
         
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
         print(f"Simple quiz generation error: {str(e)}")
+        print(f"Traceback: {error_trace}")
         fallback = get_fallback_message('quiz')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "status": "error",
-                "message": fallback['message'],
+                "message": f"{fallback['message']} Error: {str(e)}",
                 "code": "GENERATION_ERROR",
                 "suggestion": fallback['suggestion']
             }
