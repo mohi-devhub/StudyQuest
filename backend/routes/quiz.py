@@ -15,12 +15,6 @@ from typing import List, Optional
 import asyncio
 import time
 
-# Import rate limiter
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
-
 router = APIRouter(
     prefix="/quiz",
     tags=["quiz"]
@@ -149,7 +143,6 @@ class SimpleQuizResponse(BaseModel):
 
 
 @router.post("/", response_model=SimpleQuizResponse)
-@limiter.limit("5/minute")
 async def generate_simple_quiz(
     http_request: Request,
     request: SimpleQuizRequest,
@@ -291,7 +284,6 @@ async def generate_simple_quiz(
 
 
 @router.post("/generate", response_model=QuizResponse)
-@limiter.limit("5/minute")
 async def generate_quiz_from_notes(
     http_request: Request,
     request: GenerateQuizFromNotesRequest,
@@ -379,7 +371,6 @@ async def generate_quiz_from_notes(
 
 
 @router.post("/generate-from-topic", response_model=QuizResponse)
-@limiter.limit("5/minute")
 async def generate_quiz_from_structured_notes(
     http_request: Request,
     request: GenerateQuizFromTopicRequest,
