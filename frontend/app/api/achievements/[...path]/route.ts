@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+type RouteContext = {
+  params: Promise<{ path: string[] }>;
+};
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } },
+  context: RouteContext,
 ) {
   try {
-    const path = params.path.join("/");
-    const url = `${API_BASE}/achievements/${path}`;
+    const { path } = await context.params;
+    const pathString = path.join("/");
+    const url = `${API_BASE}/achievements/${pathString}`;
 
     const response = await fetch(url, {
       method: "GET",
@@ -30,11 +35,12 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } },
+  context: RouteContext,
 ) {
   try {
-    const path = params.path.join("/");
-    const url = `${API_BASE}/achievements/${path}`;
+    const { path } = await context.params;
+    const pathString = path.join("/");
+    const url = `${API_BASE}/achievements/${pathString}`;
     const body = await request.json();
 
     const response = await fetch(url, {

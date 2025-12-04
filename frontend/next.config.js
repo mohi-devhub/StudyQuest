@@ -1,10 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Skip static optimization for pages that need runtime data
-  // This prevents build errors when Supabase env vars are missing
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
   // Allow build to pass with ESLint warnings
   eslint: {
     ignoreDuringBuilds: true,
