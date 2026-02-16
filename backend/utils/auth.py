@@ -45,6 +45,20 @@ async def verify_user(
         )
 
 
+def validate_user_access(user_id: str, current_user: dict):
+    """
+    Verify the authenticated user matches the requested user_id.
+
+    Raises:
+        HTTPException: 403 if user_id does not match
+    """
+    if str(current_user.id) != str(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this resource",
+        )
+
+
 def get_current_user_id(user: dict = Depends(verify_user)) -> str:
     """
     Extract user ID from verified user data.

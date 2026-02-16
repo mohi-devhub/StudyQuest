@@ -2,10 +2,11 @@
 Adaptive Coach Routes
 Provides personalized feedback and recommendations based on user performance
 """
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from agents.adaptive_coach_agent import generate_adaptive_feedback
+from utils.auth import verify_user, validate_user_access
 
 # Import rate limiter
 from slowapi import Limiter
@@ -31,22 +32,12 @@ class CoachFeedbackResponse(BaseModel):
 
 @router.get("/feedback/{user_id}", response_model=CoachFeedbackResponse)
 @limiter.limit("5/minute")
-async def get_adaptive_feedback(request: Request, user_id: str):
+async def get_adaptive_feedback(request: Request, user_id: str, current_user: dict = Depends(verify_user)):
     """
-    Get personalized adaptive feedback for a user
-    
-    Analyzes:
-    - Weak topics (< 60%) → recommends review
-    - Strong topics (>= 80%) → builds on strengths
-    - Recent activity → suggests next topics
-    
-    Returns:
-    - Performance summary
-    - Topics to review
-    - New topic recommendations (via Google Gemini AI)
-    - Motivational messages
-    - Next steps
+    Get personalized adaptive feedback for a user.
+    Requires authentication. Users can only access their own feedback.
     """
+    validate_user_access(user_id, current_user)
     try:
         feedback = await generate_adaptive_feedback(user_id)
         return feedback

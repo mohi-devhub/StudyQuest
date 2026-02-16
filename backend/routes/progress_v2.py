@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from datetime import datetime
-from utils.auth import verify_user
+from utils.auth import verify_user, validate_user_access
 from utils.error_handlers import (
     validate_topic,
     validate_difficulty,
@@ -133,8 +133,7 @@ async def get_progress_v2_info():
             "GET /user/{user_id}/xp-history": "Get XP change history",
             "GET /user/{user_id}/quiz-history": "Get quiz attempt history",
             "GET /user/{user_id}/stats": "Get user statistics",
-            "GET /leaderboard": "Get XP leaderboard with details",
-            "GET /debug/{user_id}": "DEBUG: Raw database data"
+            "GET /leaderboard": "Get XP leaderboard with details"
         },
         "features": [
             "Automatic XP calculation",
@@ -145,26 +144,6 @@ async def get_progress_v2_info():
         ]
     }
 
-
-@router.get("/debug/{user_id}")
-async def debug_user_data(user_id: str):
-    """DEBUG: See raw database data"""
-    try:
-        # Get raw data from all tables
-        user = supabase.table('users').select('*').eq('user_id', user_id).execute()
-        topics = supabase.table('user_topics').select('*').eq('user_id', user_id).execute()
-        quizzes = supabase.table('quiz_scores').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(5).execute()
-        
-        return {
-            "user": user.data if user.data else [],
-            "user_exists": len(user.data) > 0 if user.data else False,
-            "topics_raw": topics.data if topics.data else [],
-            "recent_quizzes": quizzes.data if quizzes.data else [],
-            "topics_count": len(topics.data) if topics.data else 0,
-            "quizzes_count": len(quizzes.data) if quizzes.data else 0
-        }
-    except Exception as e:
-        return {"error": str(e)}
 
 
 @router.post("/submit-quiz")
@@ -369,8 +348,9 @@ async def submit_quiz(
 
 
 @router.get("/{user_id}")
-async def get_user_progress(user_id: str):
+async def get_user_progress(user_id: str, current_user: dict = Depends(verify_user)):
     """Get complete user progress including all topics and XP"""
+    validate_user_access(user_id, current_user)
     try:
         # Get user data
         user = supabase.table('users').select('*').eq('user_id', user_id).execute()
@@ -428,8 +408,9 @@ async def get_user_progress(user_id: str):
 
 
 @router.get("/user/{user_id}/topics")
-async def get_user_topics(user_id: str, status: Optional[str] = None):
+async def get_user_topics(user_id: str, status: Optional[str] = None, current_user: dict = Depends(verify_user)):
     """Get all topics for a user, optionally filtered by status"""
+    validate_user_access(user_id, current_user)
     try:
         query = supabase.table('user_topics').select('*').eq('user_id', user_id)
         
@@ -449,8 +430,9 @@ async def get_user_topics(user_id: str, status: Optional[str] = None):
 
 
 @router.get("/user/{user_id}/topics/{topic}")
-async def get_topic_progress(user_id: str, topic: str):
+async def get_topic_progress(user_id: str, topic: str, current_user: dict = Depends(verify_user)):
     """Get progress for a specific topic"""
+    validate_user_access(user_id, current_user)
     try:
         # Get topic progress
         topic_data = supabase.table('user_topics').select('*').eq('user_id', user_id).eq('topic', topic).single().execute()
@@ -477,8 +459,9 @@ async def get_topic_progress(user_id: str, topic: str):
 
 
 @router.get("/user/{user_id}/xp-history")
-async def get_xp_history(user_id: str, limit: int = 50):
+async def get_xp_history(user_id: str, limit: int = 50, current_user: dict = Depends(verify_user)):
     """Get XP change history for a user"""
+    validate_user_access(user_id, current_user)
     try:
         result = supabase.table('xp_history').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(limit).execute()
         
@@ -493,8 +476,9 @@ async def get_xp_history(user_id: str, limit: int = 50):
 
 
 @router.get("/user/{user_id}/quiz-history")
-async def get_quiz_history(user_id: str, limit: int = 50, topic: Optional[str] = None):
+async def get_quiz_history(user_id: str, limit: int = 50, topic: Optional[str] = None, current_user: dict = Depends(verify_user)):
     """Get quiz attempt history"""
+    validate_user_access(user_id, current_user)
     try:
         query = supabase.table('quiz_scores').select('*').eq('user_id', user_id)
         
@@ -514,8 +498,9 @@ async def get_quiz_history(user_id: str, limit: int = 50, topic: Optional[str] =
 
 
 @router.get("/user/{user_id}/stats")
-async def get_user_stats(user_id: str):
+async def get_user_stats(user_id: str, current_user: dict = Depends(verify_user)):
     """Get aggregated user statistics"""
+    validate_user_access(user_id, current_user)
     try:
         # Use the view we created
         stats = supabase.table('user_progress_summary').select('*').eq('user_id', user_id).execute()
