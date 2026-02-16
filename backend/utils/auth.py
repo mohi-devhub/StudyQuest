@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from config.supabase_client import get_supabase
+from config.supabase_client import get_admin_supabase
 from typing import Optional
 
 security = HTTPBearer()
@@ -22,11 +22,11 @@ async def verify_user(
         HTTPException: If token is invalid or user not found
     """
     try:
-        supabase = get_supabase()
+        admin_client = get_admin_supabase()
         token = credentials.credentials
-        
-        # Verify the token with Supabase
-        user_response = supabase.auth.get_user(token)
+
+        # Verify the token with the admin client (requires service_role key)
+        user_response = admin_client.auth.get_user(token)
         
         if not user_response or not user_response.user:
             raise HTTPException(
