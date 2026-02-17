@@ -160,7 +160,8 @@ class AdaptiveQuizAgent:
         notes: str,
         difficulty: str = 'medium',
         num_questions: int = 5,
-        user_context: Optional[Dict] = None
+        user_context: Optional[Dict] = None,
+        model_override: Optional[str] = None
     ) -> Dict:
         """
         Generate an adaptive quiz with difficulty-appropriate questions.
@@ -176,7 +177,10 @@ class AdaptiveQuizAgent:
         """
         if not notes or not notes.strip():
             raise ValueError("Notes cannot be empty")
-        
+
+        # Determine which model to use
+        active_model = model_override or AdaptiveQuizAgent.MODELS['primary']
+
         # Check cache first
         cache_key_params = {
             'difficulty': difficulty,
@@ -184,7 +188,7 @@ class AdaptiveQuizAgent:
         }
         cached_response = quiz_cache.get(
             notes,
-            AdaptiveQuizAgent.MODELS['primary'],
+            active_model,
             **cache_key_params
         )
         
@@ -256,7 +260,7 @@ Make sure:
         try:
             # Initialize the model
             model_instance = genai.GenerativeModel(
-                model_name=AdaptiveQuizAgent.MODELS['primary'],
+                model_name=active_model,
                 generation_config={
                     "temperature": temperature,
                     "top_p": 0.95,
@@ -298,7 +302,7 @@ Make sure:
                 "difficulty": difficulty,
                 "questions": validated_questions,
                 "metadata": {
-                    "model": AdaptiveQuizAgent.MODELS['primary'],
+                    "model": active_model,
                     "cognitive_level": diff_context['cognitive_level'],
                     "generated_count": len(validated_questions),
                     "cached": False
@@ -308,7 +312,7 @@ Make sure:
             # Cache the result
             quiz_cache.set(
                 notes,
-                AdaptiveQuizAgent.MODELS['primary'],
+                active_model,
                 result,
                 **cache_key_params
             )
@@ -427,25 +431,18 @@ Make sure:
         for model in models:
             try:
                 logger.info("Attempting quiz generation with model", model=model, difficulty=difficulty, num_questions=num_questions)
-                # Temporarily set the model
-                original_model = AdaptiveQuizAgent.MODELS['primary']
-                AdaptiveQuizAgent.MODELS['primary'] = model
-                
+
                 result = await AdaptiveQuizAgent.generate_adaptive_quiz(
-                    notes, difficulty, num_questions, user_context
+                    notes, difficulty, num_questions, user_context,
+                    model_override=model
                 )
-                
-                # Restore original model
-                AdaptiveQuizAgent.MODELS['primary'] = original_model
-                
+
                 logger.info("Quiz generation succeeded", model=model, difficulty=difficulty, questions_generated=len(result.get('questions', [])))
                 return result
-                
+
             except Exception as e:
                 logger.warning("Model failed for quiz generation", model=model, difficulty=difficulty, error=str(e))
                 last_error = e
-                # Restore original model before trying next
-                AdaptiveQuizAgent.MODELS['primary'] = original_model
                 continue
         
         raise Exception(f"All models failed. Last error: {str(last_error)}")

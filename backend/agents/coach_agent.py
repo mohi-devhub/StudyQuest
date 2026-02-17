@@ -199,7 +199,7 @@ async def study_topic_with_crewai(topic: str, num_questions: int = 5) -> Dict:
     logger.info("Starting CrewAI study workflow", topic=topic, num_questions=num_questions)
     
     # Get LLM for agents
-    llm = get_openrouter_llm()
+    llm = get_gemini_llm()
     
     # Define tools for agents
     research_tool = Tool(

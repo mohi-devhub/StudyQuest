@@ -250,8 +250,8 @@ class AdaptiveQuizHelper:
             'questions': quiz_data['questions'],
             'adaptive_info': {
                 'difficulty_selected': adaptive_params['difficulty'],
-                'difficulty_recommended': adaptive_params['recommendation']['recommended_difficulty'],
-                'reasoning': adaptive_params['recommendation']['reasoning'],
+                'difficulty_recommended': adaptive_params['difficulty'],
+                'reasoning': adaptive_params['recommendation'],
                 'user_avg_score': adaptive_params['user_performance']['avg_score'],
                 'total_attempts': adaptive_params['user_performance']['total_attempts'],
                 'adaptive_mode': True,
