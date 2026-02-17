@@ -11,6 +11,8 @@ from utils.error_handlers import (
     ErrorResponse
 )
 from utils.cache_utils import get_cached_content, set_cached_content
+from utils.quiz_sessions import create_session
+from config.supabase_client import supabase
 from typing import List, Optional
 import asyncio
 import time
@@ -67,6 +69,7 @@ class QuizQuestion(BaseModel):
 class QuizResponse(BaseModel):
     questions: List[QuizQuestion]
     total_questions: int
+    session_id: Optional[str] = None
     
     class Config:
         json_schema_extra = {
@@ -119,6 +122,7 @@ class SimpleQuizResponse(BaseModel):
     topic: str
     quiz: List[QuizQuestion]
     metadata: dict
+    session_id: Optional[str] = None
     
     class Config:
         json_schema_extra = {
@@ -190,15 +194,21 @@ async def generate_simple_quiz(
             )
             
             if cached_quiz:
+                cached_questions = cached_quiz.get('quiz', [])
+                user_id = current_user.id
+                sid = create_session(user_id, validated_topic, difficulty, [
+                    q if isinstance(q, dict) else q.dict() for q in cached_questions
+                ])
                 return {
                     "topic": validated_topic,
-                    "quiz": cached_quiz.get('quiz', []),
+                    "quiz": cached_questions,
                     "metadata": {
-                        "num_questions": len(cached_quiz.get('quiz', [])),
+                        "num_questions": len(cached_questions),
                         "difficulty": difficulty,
                         "cached": True,
                         "cache_hit": True
-                    }
+                    },
+                    "session_id": sid
                 }
         
         # Generate study package (notes + quiz) with timeout protection
@@ -234,11 +244,17 @@ async def generate_simple_quiz(
                 content=quiz_data,
                 num_questions=validated_num_questions
             )
-            
+
+            user_id = current_user.id
+            sid = create_session(user_id, validated_topic, difficulty, [
+                q if isinstance(q, dict) else q.dict() for q in quiz
+            ])
+
             return {
                 "topic": validated_topic,
                 "quiz": quiz,
-                "metadata": metadata
+                "metadata": metadata,
+                "session_id": sid
             }
             
         except asyncio.TimeoutError:
@@ -325,10 +341,16 @@ async def generate_quiz_from_notes(
                 ),
                 timeout=20.0  # 20 second timeout
             )
-            
+
+            user_id = current_user.id
+            sid = create_session(user_id, "Notes Quiz", "medium", [
+                q if isinstance(q, dict) else q.dict() for q in questions
+            ])
+
             return {
                 "questions": questions,
-                "total_questions": len(questions)
+                "total_questions": len(questions),
+                "session_id": sid
             }
             
         except asyncio.TimeoutError:
@@ -414,9 +436,15 @@ async def generate_quiz_from_structured_notes(
             )
             
             if cached_quiz:
+                cached_questions = cached_quiz.get('questions', [])
+                user_id = current_user.id
+                sid = create_session(user_id, validated_topic, "medium", [
+                    q if isinstance(q, dict) else q.dict() for q in cached_questions
+                ])
                 return {
-                    "questions": cached_quiz.get('questions', []),
-                    "total_questions": len(cached_quiz.get('questions', []))
+                    "questions": cached_questions,
+                    "total_questions": len(cached_questions),
+                    "session_id": sid
                 }
         
         # Generate quiz with timeout protection
@@ -439,12 +467,18 @@ async def generate_quiz_from_structured_notes(
                 content=quiz_data,
                 num_questions=num_questions
             )
-            
+
+            user_id = current_user.id
+            sid = create_session(user_id, validated_topic, "medium", [
+                q if isinstance(q, dict) else q.dict() for q in questions
+            ])
+
             return {
                 "questions": questions,
-                "total_questions": len(questions)
+                "total_questions": len(questions),
+                "session_id": sid
             }
-            
+
         except asyncio.TimeoutError:
             fallback = get_fallback_message('quiz')
             raise HTTPException(
@@ -456,10 +490,10 @@ async def generate_quiz_from_structured_notes(
                     "suggestion": fallback['suggestion']
                 }
             )
-        
+
     except HTTPException:
         raise
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -469,7 +503,7 @@ async def generate_quiz_from_structured_notes(
                 "code": "VALIDATION_ERROR"
             }
         )
-        
+
     except Exception as e:
         print(f"Quiz generation error: {str(e)}")
         fallback = get_fallback_message('quiz')
@@ -483,3 +517,55 @@ async def generate_quiz_from_structured_notes(
             }
         )
 
+
+class StartSessionRequest(BaseModel):
+    """Request to start a quiz session from a saved study session"""
+    study_session_id: str = Field(..., description="Supabase study_sessions row ID")
+
+
+class StartSessionResponse(BaseModel):
+    session_id: str
+
+
+@router.post("/start-session", response_model=StartSessionResponse)
+async def start_quiz_session(
+    request: StartSessionRequest,
+    current_user: dict = Depends(verify_user),
+):
+    """
+    Create a server-side quiz session from an existing study session's
+    stored quiz_questions.  The client sends the study_session_id; the
+    backend fetches the questions from the DB (server is source of truth).
+    """
+    try:
+        result = supabase.table("study_sessions").select(
+            "topic, quiz_questions"
+        ).eq("id", request.study_session_id).single().execute()
+
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"status": "error", "message": "Study session not found", "code": "NOT_FOUND"},
+            )
+
+        topic = result.data.get("topic", "Saved Quiz")
+        questions = result.data.get("quiz_questions") or []
+
+        if not questions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"status": "error", "message": "Study session has no quiz questions", "code": "NO_QUESTIONS"},
+            )
+
+        user_id = current_user.id
+        sid = create_session(user_id, topic, "medium", questions)
+        return {"session_id": sid}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Start session error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"status": "error", "message": f"Failed to start session: {str(e)}", "code": "SESSION_ERROR"},
+        )

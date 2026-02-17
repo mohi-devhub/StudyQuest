@@ -3,8 +3,6 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, Suspense } from "react";
-import { useAuth } from "@/lib/useAuth";
-import { supabase } from "@/lib/supabase";
 
 interface QuizQuestion {
   question: string;
@@ -19,82 +17,33 @@ interface QuizResults {
   score: number;
   correct: number;
   total: number;
+  xpEarned?: number;
+  xpChange?: {
+    previous_xp: number;
+    new_xp: number;
+    previous_level: number;
+    new_level: number;
+    leveled_up: boolean;
+  };
   questions: QuizQuestion[];
 }
 
 function ResultContent() {
   const searchParams = useSearchParams();
-  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [quizResults, setQuizResults] = useState<QuizResults | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [xpEarned, setXpEarned] = useState<number | null>(null);
 
-  const score = Number(searchParams.get("score")) || 0;
-  const correct = Number(searchParams.get("correct")) || 0;
-  const total = Number(searchParams.get("total")) || 5;
+  // Topic from URL (for header display); everything else from sessionStorage
   const topic = searchParams.get("topic") || "Quiz";
 
   useEffect(() => {
     setMounted(true);
-    
-    // Load quiz results from sessionStorage
-    const stored = sessionStorage.getItem('quizResults');
+
+    const stored = sessionStorage.getItem("quizResults");
     if (stored) {
       setQuizResults(JSON.parse(stored));
     }
   }, []);
-
-  useEffect(() => {
-    // Submit quiz to backend
-    const submitQuiz = async () => {
-      if (!user?.id || submitting || xpEarned !== null) return;
-      
-      setSubmitting(true);
-      try {
-        // Get the Supabase session token
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        
-        if (!token) {
-          console.error('No auth token available');
-          return;
-        }
-        
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/progress/v2/submit-quiz`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            topic: topic,
-            correct: correct,
-            total: total,
-            difficulty: 'medium',
-            time_taken: 0
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setXpEarned(data.xp_earned || 0);
-        } else {
-          console.error('Quiz submission failed:', response.status, await response.text());
-        }
-      } catch (error) {
-        console.error('Failed to submit quiz:', error);
-      } finally {
-        setSubmitting(false);
-      }
-    };
-
-    if (mounted && user?.id) {
-      submitQuiz();
-    }
-  }, [mounted, user, topic, correct, total, submitting, xpEarned]);
 
   if (!mounted) {
     return (
@@ -103,6 +52,30 @@ function ResultContent() {
       </div>
     );
   }
+
+  // No results available — user navigated here directly
+  if (!quizResults) {
+    return (
+      <div className="min-h-screen bg-terminal-black text-terminal-white">
+        <div className="max-w-4xl mx-auto px-8 py-16 text-center">
+          <div className="text-terminal-gray text-sm mb-4">QUIZ_RESULT</div>
+          <h1 className="text-4xl font-bold mb-8">NO_RESULTS_FOUND</h1>
+          <p className="text-terminal-gray mb-8">
+            No quiz results available. Take a quiz first to see your results
+            here.
+          </p>
+          <Link
+            href="/quiz"
+            className="px-8 py-4 border-2 border-terminal-white hover:bg-terminal-white hover:text-terminal-black transition-colors font-bold"
+          >
+            GO_TO_QUIZ()
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { score, correct, total, xpEarned, xpChange } = quizResults;
 
   const getPerformanceLevel = () => {
     if (score >= 90)
@@ -128,7 +101,9 @@ function ResultContent() {
 
         {/* Score Display */}
         <div className="border-2 border-terminal-white p-12 mb-8 text-center">
-          <div className="text-8xl font-bold mb-6">{(score ?? 0).toFixed(0)}%</div>
+          <div className="text-8xl font-bold mb-6">
+            {(score ?? 0).toFixed(0)}%
+          </div>
           <div className="text-3xl mb-4">
             {correct} / {total} Correct
           </div>
@@ -159,50 +134,76 @@ function ResultContent() {
                 {(score ?? 0).toFixed(1)}%
               </span>
             </div>
-            {xpEarned !== null && (
+            {xpEarned != null && (
               <div className="flex justify-between pt-4 border-t border-terminal-white/20">
                 <span className="text-terminal-gray">XP Earned:</span>
-                <span className="font-mono text-terminal-green">+{xpEarned} XP</span>
+                <span className="font-mono text-terminal-green">
+                  +{xpEarned} XP
+                </span>
+              </div>
+            )}
+            {xpChange?.leveled_up && (
+              <div className="flex justify-between">
+                <span className="text-terminal-gray">Level Up!</span>
+                <span className="font-mono text-yellow-400">
+                  Level {xpChange.previous_level} → {xpChange.new_level}
+                </span>
               </div>
             )}
           </div>
         </div>
 
         {/* Question Review */}
-        {quizResults && quizResults.questions.length > 0 && (
+        {quizResults.questions.length > 0 && (
           <div className="border border-terminal-white/30 p-8 mb-8">
             <h2 className="text-xl font-bold mb-6">QUESTION_REVIEW()</h2>
             <div className="space-y-6">
               {quizResults.questions.map((q, index) => {
                 const isCorrect = q.userAnswer === q.correctAnswer;
                 const wasAnswered = q.userAnswer !== undefined;
-                
+
                 return (
-                  <div key={index} className={`p-4 border ${isCorrect ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+                  <div
+                    key={index}
+                    className={`p-4 border ${isCorrect ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"}`}
+                  >
                     <div className="flex items-start gap-3 mb-3">
-                      <span className={`font-mono ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-                        {isCorrect ? '✓' : '✗'}
+                      <span
+                        className={`font-mono ${isCorrect ? "text-green-400" : "text-red-400"}`}
+                      >
+                        {isCorrect ? "✓" : "✗"}
                       </span>
                       <div className="flex-1">
-                        <div className="font-bold mb-2">Q{index + 1}: {q.question}</div>
-                        
+                        <div className="font-bold mb-2">
+                          Q{index + 1}: {q.question}
+                        </div>
+
                         {/* Options */}
                         <div className="space-y-2 mb-3">
                           {q.options.map((option, optIndex) => {
                             const letter = String.fromCharCode(65 + optIndex);
                             const isCorrectOption = letter === q.correctAnswer;
                             const isUserAnswer = letter === q.userAnswer;
-                            
+
                             return (
-                              <div key={optIndex} className={`flex items-center gap-2 text-sm ${
-                                isCorrectOption ? 'text-green-400 font-bold' : 
-                                isUserAnswer && !isCorrect ? 'text-red-400' : 
-                                'text-terminal-gray'
-                              }`}>
+                              <div
+                                key={optIndex}
+                                className={`flex items-center gap-2 text-sm ${
+                                  isCorrectOption
+                                    ? "text-green-400 font-bold"
+                                    : isUserAnswer && !isCorrect
+                                      ? "text-red-400"
+                                      : "text-terminal-gray"
+                                }`}
+                              >
                                 <span className="font-mono">{letter}.</span>
                                 <span>{option}</span>
-                                {isCorrectOption && <span className="ml-2">✓ Correct</span>}
-                                {isUserAnswer && !isCorrect && <span className="ml-2">✗ Your answer</span>}
+                                {isCorrectOption && (
+                                  <span className="ml-2">✓ Correct</span>
+                                )}
+                                {isUserAnswer && !isCorrect && (
+                                  <span className="ml-2">✗ Your answer</span>
+                                )}
                               </div>
                             );
                           })}
@@ -210,9 +211,13 @@ function ResultContent() {
 
                         {/* Result */}
                         {!wasAnswered ? (
-                          <div className="text-yellow-400 text-sm">Not answered</div>
+                          <div className="text-yellow-400 text-sm">
+                            Not answered
+                          </div>
                         ) : isCorrect ? (
-                          <div className="text-green-400 text-sm">✓ Correct!</div>
+                          <div className="text-green-400 text-sm">
+                            ✓ Correct!
+                          </div>
                         ) : (
                           <div className="text-red-400 text-sm">
                             ✗ Wrong. Correct answer: {q.correctAnswer}
@@ -222,8 +227,12 @@ function ResultContent() {
                         {/* Explanation */}
                         {q.explanation && !isCorrect && (
                           <div className="mt-3 p-3 bg-terminal-white/5 border-l-2 border-blue-400">
-                            <div className="text-blue-400 text-xs font-bold mb-1">EXPLANATION:</div>
-                            <div className="text-terminal-gray text-sm">{q.explanation}</div>
+                            <div className="text-blue-400 text-xs font-bold mb-1">
+                              EXPLANATION:
+                            </div>
+                            <div className="text-terminal-gray text-sm">
+                              {q.explanation}
+                            </div>
                           </div>
                         )}
                       </div>

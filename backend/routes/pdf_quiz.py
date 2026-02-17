@@ -10,6 +10,7 @@ import PyPDF2
 import io
 from utils.auth import verify_user
 from agents.quiz_agent import generate_quiz_with_fallback
+from utils.quiz_sessions import create_session
 import time
 
 router = APIRouter(
@@ -29,6 +30,7 @@ class PdfQuizResponse(BaseModel):
     questions: List[QuizQuestion]
     quiz: List[QuizQuestion]  # Alias for compatibility
     metadata: dict
+    session_id: Optional[str] = None
 
 
 def extract_text_from_pdf(pdf_file: bytes) -> str:
@@ -188,7 +190,14 @@ async def generate_quiz_from_pdf(
         
         # Calculate generation time
         generation_time_ms = int((time.time() - start_time) * 1000)
-        
+
+        # Create server-side quiz session
+        user_id = current_user.id
+        topic = f"Quiz from {file.filename}"
+        sid = create_session(user_id, topic, "medium", [
+            q if isinstance(q, dict) else q.dict() for q in questions
+        ])
+
         # Return response
         return {
             "questions": questions,
@@ -199,7 +208,8 @@ async def generate_quiz_from_pdf(
                 "content_length": len(text_chunk),
                 "generation_time_ms": generation_time_ms,
                 "filename": file.filename
-            }
+            },
+            "session_id": sid
         }
     
     except HTTPException:

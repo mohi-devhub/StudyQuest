@@ -451,7 +451,6 @@ Make sure:
         raise Exception(f"All models failed. Last error: {str(last_error)}")
     
     @staticmethod
-    @staticmethod
     def get_difficulty_recommendation(
         avg_score: Optional[float],
         current_difficulty: Optional[str],

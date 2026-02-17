@@ -39,9 +39,11 @@ export default function QuizPage() {
     quiz: QuizQuestion[]
     summary?: string
     key_points?: string[]
+    sessionId?: string
   } | null>(null)
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: string }>({})
+  const [quizSubmitting, setQuizSubmitting] = useState(false)
 
   useEffect(() => {
     // Only redirect if auth check is complete and user is not logged in
@@ -83,11 +85,39 @@ export default function QuizPage() {
 
       // Use existing quiz questions if available
       if (session.quiz_questions && session.quiz_questions.length > 0) {
+        // Create a server-side session from the saved questions
+        const {
+          data: { session: authSessionForSaved },
+        } = await supabase.auth.getSession()
+
+        if (!authSessionForSaved?.access_token) {
+          setError('Authentication required. Please log in again.')
+          setLoading(false)
+          return
+        }
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const startRes = await fetch(`${apiUrl}/quiz/start-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authSessionForSaved.access_token}`
+          },
+          body: JSON.stringify({ study_session_id: session.id })
+        })
+
+        let sessionId: string | undefined
+        if (startRes.ok) {
+          const startData = await startRes.json()
+          sessionId = startData.session_id
+        }
+
         setQuizData({
           topic: session.topic,
           summary: session.summary,
           key_points: session.key_points,
-          quiz: session.quiz_questions
+          quiz: session.quiz_questions,
+          sessionId
         })
         setMode('quiz')
         setLoading(false)
@@ -131,7 +161,8 @@ export default function QuizPage() {
         topic: session.topic,
         summary: session.summary,
         key_points: session.key_points,
-        quiz: data.questions || []
+        quiz: data.questions || [],
+        sessionId: data.session_id
       })
       setMode('quiz')
     } catch (err) {
@@ -179,7 +210,8 @@ export default function QuizPage() {
       const data = await response.json()
       setQuizData({
         topic: `Quiz from ${selectedFile.name}`,
-        quiz: data.questions || []
+        quiz: data.questions || [],
+        sessionId: data.session_id
       })
       setMode('quiz')
       setSelectedFile(null)
@@ -237,7 +269,8 @@ export default function QuizPage() {
       const data = await response.json()
       setQuizData({
         topic: customTopic.trim(),
-        quiz: data.quiz || []
+        quiz: data.quiz || [],
+        sessionId: data.session_id
       })
       setMode('quiz')
       setCustomTopic('')
@@ -283,35 +316,99 @@ export default function QuizPage() {
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!quizData) return
 
-    let correctCount = 0
-    quizData.quiz.forEach((q, index) => {
-      if (selectedAnswers[index] === q.answer) {
-        correctCount++
-      }
-    })
+    setQuizSubmitting(true)
+    setError(null)
 
-    const score = (correctCount / quizData.quiz.length) * 100
-    
-    // Store quiz data in sessionStorage for result page
-    const quizResults = {
-      topic: quizData.topic,
-      score,
-      correct: correctCount,
-      total: quizData.quiz.length,
-      questions: quizData.quiz.map((q, index) => ({
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.answer,
-        userAnswer: selectedAnswers[index],
-        explanation: q.explanation
-      }))
+    try {
+      // Build ordered answers array
+      const answers = quizData.quiz.map((_, index) => selectedAnswers[index] || '')
+
+      // Get auth token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setError('Authentication required. Please log in again.')
+        return
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+      if (quizData.sessionId) {
+        // Server-side grading path
+        const response = await fetch(`${apiUrl}/progress/v2/submit-quiz`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            session_id: quizData.sessionId,
+            answers,
+            time_taken: 0
+          })
+        })
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}))
+          throw new Error(errData.detail?.message || `Submission failed (${response.status})`)
+        }
+
+        const result = await response.json()
+
+        // Build quiz results from server response
+        const quizResults = {
+          topic: quizData.topic,
+          score: result.score,
+          correct: result.correct,
+          total: result.total,
+          xpEarned: result.xp_earned,
+          xpChange: result.xp_change,
+          questions: (result.questions || quizData.quiz).map((q: Record<string, unknown>, index: number) => ({
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.answer,
+            userAnswer: answers[index],
+            explanation: q.explanation
+          }))
+        }
+        sessionStorage.setItem('quizResults', JSON.stringify(quizResults))
+      } else {
+        // Fallback: client-side grading (no session_id available)
+        let correctCount = 0
+        quizData.quiz.forEach((q, index) => {
+          if (selectedAnswers[index] === q.answer) {
+            correctCount++
+          }
+        })
+        const score = (correctCount / quizData.quiz.length) * 100
+
+        const quizResults = {
+          topic: quizData.topic,
+          score,
+          correct: correctCount,
+          total: quizData.quiz.length,
+          questions: quizData.quiz.map((q, index) => ({
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.answer,
+            userAnswer: selectedAnswers[index],
+            explanation: q.explanation
+          }))
+        }
+        sessionStorage.setItem('quizResults', JSON.stringify(quizResults))
+      }
+
+      router.push(`/quiz/result?topic=${encodeURIComponent(quizData.topic)}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit quiz')
+    } finally {
+      setQuizSubmitting(false)
     }
-    sessionStorage.setItem('quizResults', JSON.stringify(quizResults))
-    
-    router.push(`/quiz/result?score=${score}&correct=${correctCount}&total=${quizData.quiz.length}&topic=${encodeURIComponent(quizData.topic)}`)
   }
 
   const isAnswered = (questionIndex: number) => {
@@ -643,6 +740,11 @@ export default function QuizPage() {
         </div>
 
         <div className="max-w-5xl mx-auto px-8 py-12">
+          {error && (
+            <div className="mb-8 p-4 border border-red-500 bg-red-500/10 text-red-400">
+              {error}
+            </div>
+          )}
           <AnimatePresence mode="wait">
             <motion.div
               key={currentQuestion}
@@ -735,14 +837,14 @@ export default function QuizPage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={!allAnswered}
+                disabled={!allAnswered || quizSubmitting}
                 className={`px-8 py-4 border-2 border-terminal-white transition-all ${
-                  !allAnswered
+                  !allAnswered || quizSubmitting
                     ? 'opacity-30 cursor-not-allowed'
                     : 'hover:bg-terminal-white hover:text-terminal-black font-bold'
                 }`}
               >
-                SUBMIT_QUIZ() →
+                {quizSubmitting ? 'SUBMITTING...' : 'SUBMIT_QUIZ() →'}
               </button>
             )}
           </div>
