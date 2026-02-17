@@ -1,7 +1,13 @@
-from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, HTTPException, status, Depends, Request
+from pydantic import BaseModel, EmailStr, Field
 from config.supabase_client import get_supabase
 from utils.auth import verify_user
+from utils.validation import validate_password_strength
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/auth",
@@ -11,8 +17,8 @@ router = APIRouter(
 
 class SignUpRequest(BaseModel):
     email: EmailStr
-    password: str
-    
+    password: str = Field(..., min_length=8, max_length=128)
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -48,7 +54,8 @@ class UserResponse(BaseModel):
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def signup(request: SignUpRequest):
+@limiter.limit("5/minute")
+async def signup(request: SignUpRequest, req: Request):
     """
     Register a new user with email and password.
     
@@ -56,8 +63,16 @@ async def signup(request: SignUpRequest):
     a corresponding record in the users table via database trigger.
     """
     try:
+        # Validate password strength
+        is_valid, message = validate_password_strength(request.password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message
+            )
+
         supabase = get_supabase()
-        
+
         # Sign up user with Supabase Auth
         response = supabase.auth.sign_up({
             "email": request.email,
@@ -80,6 +95,8 @@ async def signup(request: SignUpRequest):
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         # Handle specific Supabase errors
         error_message = str(e)
@@ -95,7 +112,8 @@ async def signup(request: SignUpRequest):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(request: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: LoginRequest, req: Request):
     """
     Authenticate user with email and password.
     

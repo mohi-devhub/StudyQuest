@@ -41,7 +41,7 @@ ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel preview deployments
+    allow_origin_regex=r"https://study-?quest.*\.vercel\.app",  # Allow only StudyQuest preview deployments
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

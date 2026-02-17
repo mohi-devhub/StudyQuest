@@ -928,13 +928,20 @@ async def get_quiz_result_by_id(
         supabase = get_supabase_client()
         
         result = await get_quiz_result(supabase, quiz_id)
-        
+
         if not result:
             raise HTTPException(
                 status_code=404,
                 detail="Quiz result not found"
             )
-        
+
+        # Verify the quiz result belongs to the requesting user
+        if result.get("user_id") != current_user:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to view this quiz result"
+            )
+
         return result
         
     except HTTPException:
