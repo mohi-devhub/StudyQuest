@@ -2,6 +2,7 @@
 Progress tracking utilities for StudyQuest
 Handles progress updates and XP point awards
 """
+import asyncio
 from typing import Optional, Dict, List, Any
 from datetime import datetime
 from config.supabase_client import supabase
@@ -31,19 +32,23 @@ class ProgressTracker:
         """
         try:
             # Call the Supabase function to update progress
-            result = supabase.rpc(
-                'update_progress_after_quiz',
-                {
-                    'p_user_id': user_id,
-                    'p_topic': topic,
-                    'p_score': score,
-                    'p_completion_status': completion_status
-                }
-            ).execute()
-            
+            result = await asyncio.to_thread(
+                supabase.rpc(
+                    'update_progress_after_quiz',
+                    {
+                        'p_user_id': user_id,
+                        'p_topic': topic,
+                        'p_score': score,
+                        'p_completion_status': completion_status
+                    }
+                ).execute
+            )
+
             # Fetch the updated progress record
-            progress = supabase.table('progress').select('*').eq('user_id', user_id).eq('topic', topic).single().execute()
-            
+            progress = await asyncio.to_thread(
+                supabase.table('progress').select('*').eq('user_id', user_id).eq('topic', topic).single().execute
+            )
+
             return progress.data
         except Exception as e:
             raise Exception(f"Failed to update progress: {str(e)}")
@@ -62,11 +67,11 @@ class ProgressTracker:
         """
         try:
             query = supabase.table('progress').select('*').eq('user_id', user_id)
-            
+
             if topic:
                 query = query.eq('topic', topic)
-            
-            result = query.order('last_attempt', desc=True).execute()
+
+            result = await asyncio.to_thread(query.order('last_attempt', desc=True).execute)
             return result.data
         except Exception as e:
             raise Exception(f"Failed to fetch progress: {str(e)}")
@@ -254,20 +259,24 @@ class XPTracker:
                 metadata = {}
             
             # Call the Supabase function to award XP
-            result = supabase.rpc(
-                'award_xp',
-                {
-                    'p_user_id': user_id,
-                    'p_points': points,
-                    'p_reason': reason,
-                    'p_metadata': metadata
-                }
-            ).execute()
-            
+            result = await asyncio.to_thread(
+                supabase.rpc(
+                    'award_xp',
+                    {
+                        'p_user_id': user_id,
+                        'p_points': points,
+                        'p_reason': reason,
+                        'p_metadata': metadata
+                    }
+                ).execute
+            )
+
             # Fetch the created XP log
             log_id = result.data
-            xp_log = supabase.table('xp_logs').select('*').eq('id', log_id).single().execute()
-            
+            xp_log = await asyncio.to_thread(
+                supabase.table('xp_logs').select('*').eq('id', log_id).single().execute
+            )
+
             return xp_log.data
         except Exception as e:
             raise Exception(f"Failed to award XP: {str(e)}")
@@ -285,7 +294,9 @@ class XPTracker:
             List of XP log records
         """
         try:
-            result = supabase.table('xp_logs').select('*').eq('user_id', user_id).order('timestamp', desc=True).limit(limit).execute()
+            result = await asyncio.to_thread(
+                supabase.table('xp_logs').select('*').eq('user_id', user_id).order('timestamp', desc=True).limit(limit).execute
+            )
             return result.data
         except Exception as e:
             raise Exception(f"Failed to fetch XP logs: {str(e)}")
@@ -302,7 +313,9 @@ class XPTracker:
             Total XP and activity stats
         """
         try:
-            result = supabase.table('user_total_xp').select('*').eq('user_id', user_id).single().execute()
+            result = await asyncio.to_thread(
+                supabase.table('user_total_xp').select('*').eq('user_id', user_id).single().execute
+            )
             
             if result.data:
                 return {

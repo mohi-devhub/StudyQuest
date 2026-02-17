@@ -2,6 +2,7 @@
 Caching Utilities for Study Notes and Quizzes
 Reduces API calls by storing generated content in Supabase
 """
+import asyncio
 from typing import Optional, Dict, List
 from datetime import datetime, timedelta
 from config.supabase_client import supabase
@@ -76,9 +77,11 @@ async def get_cached_content(
         cache_key = generate_cache_key(topic, content_type, **kwargs)
         
         # Query cache table
-        result = supabase.table('content_cache').select('*').eq(
-            'cache_key', cache_key
-        ).single().execute()
+        result = await asyncio.to_thread(
+            supabase.table('content_cache').select('*').eq(
+                'cache_key', cache_key
+            ).single().execute
+        )
         
         if not result.data:
             return None
@@ -95,10 +98,12 @@ async def get_cached_content(
             return None
         
         # Update hit count
-        supabase.table('content_cache').update({
-            'hit_count': cache_entry['hit_count'] + 1,
-            'last_accessed_at': datetime.utcnow().isoformat()
-        }).eq('cache_key', cache_key).execute()
+        await asyncio.to_thread(
+            supabase.table('content_cache').update({
+                'hit_count': cache_entry['hit_count'] + 1,
+                'last_accessed_at': datetime.utcnow().isoformat()
+            }).eq('cache_key', cache_key).execute
+        )
         
         return cache_entry['content']
         
@@ -141,7 +146,9 @@ async def set_cached_content(
         }
         
         # Upsert cache entry
-        supabase.table('content_cache').upsert(cache_entry).execute()
+        await asyncio.to_thread(
+            supabase.table('content_cache').upsert(cache_entry).execute
+        )
         
         # Clean up old entries for this topic
         await cleanup_old_cache_entries(topic, content_type)
@@ -156,7 +163,9 @@ async def set_cached_content(
 async def delete_cache_entry(cache_key: str) -> bool:
     """Delete a specific cache entry"""
     try:
-        supabase.table('content_cache').delete().eq('cache_key', cache_key).execute()
+        await asyncio.to_thread(
+            supabase.table('content_cache').delete().eq('cache_key', cache_key).execute
+        )
         return True
     except Exception as e:
         print(f"Cache deletion error: {str(e)}")
@@ -170,11 +179,13 @@ async def cleanup_old_cache_entries(topic: str, content_type: str) -> None:
     """
     try:
         # Get all entries for this topic and type
-        result = supabase.table('content_cache').select('cache_key, last_accessed_at').eq(
-            'topic', topic.strip()
-        ).eq('content_type', content_type).order(
-            'last_accessed_at', desc=True
-        ).execute()
+        result = await asyncio.to_thread(
+            supabase.table('content_cache').select('cache_key, last_accessed_at').eq(
+                'topic', topic.strip()
+            ).eq('content_type', content_type).order(
+                'last_accessed_at', desc=True
+            ).execute
+        )
         
         entries = result.data or []
         
@@ -194,7 +205,9 @@ async def invalidate_topic_cache(topic: str) -> bool:
     Useful when topic content needs to be refreshed.
     """
     try:
-        supabase.table('content_cache').delete().eq('topic', topic.strip()).execute()
+        await asyncio.to_thread(
+            supabase.table('content_cache').delete().eq('topic', topic.strip()).execute
+        )
         return True
     except Exception as e:
         print(f"Cache invalidation error: {str(e)}")
@@ -217,11 +230,11 @@ async def get_cache_stats(topic: Optional[str] = None) -> Dict:
     """
     try:
         query = supabase.table('content_cache').select('*')
-        
+
         if topic:
             query = query.eq('topic', topic.strip())
-        
-        result = query.execute()
+
+        result = await asyncio.to_thread(query.execute)
         entries = result.data or []
         
         if not entries:

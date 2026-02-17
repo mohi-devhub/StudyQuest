@@ -3,6 +3,7 @@ Adaptive Quiz Utilities
 Helper functions for fetching user performance data and determining adaptive difficulty
 """
 
+import asyncio
 from typing import Dict, Optional, List
 from config.supabase_client import supabase
 
@@ -23,13 +24,13 @@ class AdaptiveQuizHelper:
             Dictionary with performance metrics
         """
         try:
-            # Get progress data
+            # Get progress data (run blocking Supabase call in thread)
             query = supabase.table('progress').select('*').eq('user_id', user_id)
-            
+
             if topic:
                 query = query.eq('topic', topic)
-            
-            result = query.execute()
+
+            result = await asyncio.to_thread(query.execute)
             
             if not result.data:
                 # No previous quiz data
@@ -90,10 +91,10 @@ class AdaptiveQuizHelper:
         """
         try:
             query = supabase.table('xp_logs').select('metadata').eq('user_id', user_id).eq('reason', 'quiz_completed').order('timestamp', desc=True)
-            
+
             if topic:
                 # Filter by topic in metadata
-                result = query.execute()
+                result = await asyncio.to_thread(query.execute)
                 
                 for log in result.data:
                     metadata = log.get('metadata', {})
@@ -101,7 +102,7 @@ class AdaptiveQuizHelper:
                         return metadata['difficulty']
             else:
                 # Just get the most recent
-                result = query.limit(1).execute()
+                result = await asyncio.to_thread(query.limit(1).execute)
                 
                 if result.data:
                     metadata = result.data[0].get('metadata', {})
@@ -127,7 +128,9 @@ class AdaptiveQuizHelper:
             Topic-specific performance metrics
         """
         try:
-            result = supabase.table('progress').select('*').eq('user_id', user_id).eq('topic', topic).single().execute()
+            result = await asyncio.to_thread(
+                supabase.table('progress').select('*').eq('user_id', user_id).eq('topic', topic).single().execute
+            )
             
             if result.data:
                 progress = result.data

@@ -3,6 +3,7 @@ Recommendation Helper Utilities
 Fetches and processes user data for study recommendations
 """
 
+import asyncio
 from typing import Dict, List, Optional
 from config.supabase_client import supabase
 
@@ -23,9 +24,11 @@ class RecommendationHelper:
         """
         try:
             # Fetch from user_topics table (updated by triggers when quizzes are submitted)
-            response = supabase.table("user_topics").select(
-                "topic, best_score, attempts, last_attempted_at, status, created_at, updated_at"
-            ).eq("user_id", user_id).execute()
+            response = await asyncio.to_thread(
+                supabase.table("user_topics").select(
+                    "topic, best_score, attempts, last_attempted_at, status, created_at, updated_at"
+                ).eq("user_id", user_id).execute
+            )
 
             if not response.data:
                 return []
@@ -62,11 +65,13 @@ class RecommendationHelper:
         """
         try:
             # Fetch topics with low scores from user_topics
-            response = supabase.table("user_topics").select(
-                "topic, best_score, attempts, last_attempted_at"
-            ).eq("user_id", user_id).lt("best_score", threshold).order(
-                "best_score", desc=False
-            ).execute()
+            response = await asyncio.to_thread(
+                supabase.table("user_topics").select(
+                    "topic, best_score, attempts, last_attempted_at"
+                ).eq("user_id", user_id).lt("best_score", threshold).order(
+                    "best_score", desc=False
+                ).execute
+            )
 
             if not response.data:
                 return []
@@ -99,9 +104,11 @@ class RecommendationHelper:
             Topic progress details or None
         """
         try:
-            response = supabase.table("user_topics").select(
-                "topic, best_score, attempts, last_attempted_at, status, created_at, updated_at"
-            ).eq("user_id", user_id).eq("topic", topic).execute()
+            response = await asyncio.to_thread(
+                supabase.table("user_topics").select(
+                    "topic, best_score, attempts, last_attempted_at, status, created_at, updated_at"
+                ).eq("user_id", user_id).eq("topic", topic).execute
+            )
 
             if response.data:
                 item = response.data[0]
@@ -133,11 +140,13 @@ class RecommendationHelper:
             List of XP log entries
         """
         try:
-            response = supabase.table("xp_logs").select(
-                "source, xp_amount, metadata, created_at"
-            ).eq("user_id", user_id).order(
-                "created_at", desc=True
-            ).limit(limit).execute()
+            response = await asyncio.to_thread(
+                supabase.table("xp_logs").select(
+                    "source, xp_amount, metadata, created_at"
+                ).eq("user_id", user_id).order(
+                    "created_at", desc=True
+                ).limit(limit).execute
+            )
 
             return response.data if response.data else []
 
@@ -162,7 +171,7 @@ class RecommendationHelper:
             if user_id:
                 query = query.eq("user_id", user_id)
 
-            response = query.execute()
+            response = await asyncio.to_thread(query.execute)
 
             if response.data:
                 # Extract unique topics

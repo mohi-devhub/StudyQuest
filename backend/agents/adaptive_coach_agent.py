@@ -2,6 +2,7 @@
 Adaptive Coach Agent
 Analyzes user performance and provides personalized feedback and recommendations
 """
+import asyncio
 import os
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
@@ -240,24 +241,26 @@ async def generate_adaptive_feedback(user_id: str) -> Dict:
     """
     # Sanitize input
     user_id = sanitize_input(user_id)
-    
-    # Analyze performance
-    analysis = analyze_user_performance(user_id)
-    
+
+    # Analyze performance (blocking Supabase calls — run in thread)
+    analysis = await asyncio.to_thread(analyze_user_performance, user_id)
+
     weak_topics = analysis['weak_topics']
     strong_topics = analysis['strong_topics']
     recent_topics = analysis['recent_topics']
     stats = analysis['overall_stats']
-    
-    # Generate recommendations
-    recommendations = generate_topic_recommendations(
+
+    # Generate recommendations (blocking Gemini call — run in thread)
+    recommendations = await asyncio.to_thread(
+        generate_topic_recommendations,
         weak_topics,
         strong_topics,
         recent_topics
     )
-    
-    # Generate motivational messages
-    motivational_messages = generate_motivational_message(
+
+    # Generate motivational messages (blocking Gemini call — run in thread)
+    motivational_messages = await asyncio.to_thread(
+        generate_motivational_message,
         avg_score=stats['avg_score'],
         total_quizzes=stats['total_attempts'],
         level=stats['level'],

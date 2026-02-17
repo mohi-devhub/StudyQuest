@@ -8,6 +8,7 @@ Functions:
 - get_quiz_result: Retrieve quiz result by ID
 """
 
+import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional
 from supabase import Client
@@ -45,64 +46,101 @@ async def save_quiz_result(
     Returns:
         Dictionary with quiz result ID and updated user stats
     """
+    timestamp = datetime.utcnow().isoformat()
+
     try:
-        # 1. Insert quiz result into quiz_results table
-        quiz_result = {
-            "user_id": user_id,
-            "topic": topic,
-            "difficulty": difficulty,
-            "score": score,
-            "total_questions": total_questions,
-            "correct_answers": correct_answers,
-            "xp_gained": xp_gained,
-            "performance_feedback": performance_feedback,
-            "next_difficulty": next_difficulty,
-            "timestamp": datetime.utcnow().isoformat(),
-            "quiz_data": quiz_data or {}
-        }
-        
-        result = supabase.table("quiz_results").insert(quiz_result).execute()
-        quiz_id = result.data[0]["id"]
-        
-        # 2. Update user XP and level
-        xp_update = await update_user_xp(supabase, user_id, xp_gained)
-        
-        # 3. Update topic progress
-        await update_topic_progress(
-            supabase=supabase,
-            user_id=user_id,
-            topic=topic,
-            score=score,
-            difficulty=difficulty
+        # Use atomic RPC function to wrap all 4 operations in a single DB transaction
+        result = await asyncio.to_thread(
+            supabase.rpc("save_quiz_result_atomic", {
+                "p_user_id": user_id,
+                "p_topic": topic,
+                "p_difficulty": difficulty,
+                "p_score": score,
+                "p_total_questions": total_questions,
+                "p_correct_answers": correct_answers,
+                "p_xp_gained": xp_gained,
+                "p_performance_feedback": performance_feedback,
+                "p_next_difficulty": next_difficulty,
+                "p_quiz_data": quiz_data or {},
+                "p_timestamp": timestamp
+            }).execute
         )
-        
-        # 4. Log XP gain
-        await log_xp_gain(
-            supabase=supabase,
-            user_id=user_id,
-            xp_amount=xp_gained,
-            source="quiz_completion",
-            topic=topic,
-            details={
-                "quiz_id": quiz_id,
-                "score": score,
-                "difficulty": difficulty
-            }
-        )
-        
+
+        rpc_result = result.data
         return {
-            "quiz_id": quiz_id,
-            "user_id": user_id,
-            "xp_gained": xp_gained,
-            "total_xp": xp_update["total_xp"],
-            "current_level": xp_update["current_level"],
-            "level_up": xp_update.get("level_up", False),
-            "timestamp": quiz_result["timestamp"]
+            "quiz_id": rpc_result["quiz_id"],
+            "user_id": rpc_result["user_id"],
+            "xp_gained": rpc_result["xp_gained"],
+            "total_xp": rpc_result["total_xp"],
+            "current_level": rpc_result["current_level"],
+            "level_up": rpc_result.get("level_up", False),
+            "timestamp": rpc_result["timestamp"]
         }
-        
-    except Exception as e:
-        print(f"Error saving quiz result: {e}")
-        raise
+
+    except Exception as rpc_error:
+        # Fallback to sequential operations if RPC function not yet deployed
+        print(f"RPC fallback (run ADD_SAVE_QUIZ_RESULT_RPC.sql migration): {rpc_error}")
+
+        try:
+            # 1. Insert quiz result
+            quiz_result = {
+                "user_id": user_id,
+                "topic": topic,
+                "difficulty": difficulty,
+                "score": score,
+                "total_questions": total_questions,
+                "correct_answers": correct_answers,
+                "xp_gained": xp_gained,
+                "performance_feedback": performance_feedback,
+                "next_difficulty": next_difficulty,
+                "timestamp": timestamp,
+                "quiz_data": quiz_data or {}
+            }
+
+            result = await asyncio.to_thread(
+                supabase.table("quiz_results").insert(quiz_result).execute
+            )
+            quiz_id = result.data[0]["id"]
+
+            # 2. Update user XP and level
+            xp_update = await update_user_xp(supabase, user_id, xp_gained)
+
+            # 3. Update topic progress
+            await update_topic_progress(
+                supabase=supabase,
+                user_id=user_id,
+                topic=topic,
+                score=score,
+                difficulty=difficulty
+            )
+
+            # 4. Log XP gain
+            await log_xp_gain(
+                supabase=supabase,
+                user_id=user_id,
+                xp_amount=xp_gained,
+                source="quiz_completion",
+                topic=topic,
+                details={
+                    "quiz_id": quiz_id,
+                    "score": score,
+                    "difficulty": difficulty
+                }
+            )
+
+            return {
+                "quiz_id": quiz_id,
+                "user_id": user_id,
+                "xp_gained": xp_gained,
+                "total_xp": xp_update["total_xp"],
+                "current_level": xp_update["current_level"],
+                "level_up": xp_update.get("level_up", False),
+                "timestamp": timestamp
+            }
+
+        except Exception as e:
+            print(f"Error saving quiz result: {e}")
+            raise
 
 
 async def update_user_xp(
@@ -123,8 +161,10 @@ async def update_user_xp(
     """
     try:
         # Get current user stats
-        user_response = supabase.table("users").select("total_xp, current_level").eq("user_id", user_id).execute()
-        
+        user_response = await asyncio.to_thread(
+            supabase.table("users").select("total_xp, current_level").eq("user_id", user_id).execute
+        )
+
         if not user_response.data:
             # Create new user record
             current_xp = 0
@@ -132,12 +172,12 @@ async def update_user_xp(
         else:
             current_xp = user_response.data[0].get("total_xp", 0)
             current_level = user_response.data[0].get("current_level", 1)
-        
+
         # Calculate new XP and level
         new_xp = current_xp + xp_gained
         new_level = calculate_level(new_xp)
         level_up = new_level > current_level
-        
+
         # Update user record
         update_data = {
             "user_id": user_id,
@@ -145,21 +185,25 @@ async def update_user_xp(
             "current_level": new_level,
             "updated_at": datetime.utcnow().isoformat()
         }
-        
+
         if not user_response.data:
             # Insert new user
-            supabase.table("users").insert(update_data).execute()
+            await asyncio.to_thread(
+                supabase.table("users").insert(update_data).execute
+            )
         else:
             # Update existing user
-            supabase.table("users").update(update_data).eq("user_id", user_id).execute()
-        
+            await asyncio.to_thread(
+                supabase.table("users").update(update_data).eq("user_id", user_id).execute
+            )
+
         return {
             "total_xp": new_xp,
             "current_level": new_level,
             "level_up": level_up,
             "xp_for_next_level": (new_level * 500) - new_xp
         }
-        
+
     except Exception as e:
         print(f"Error updating user XP: {e}")
         raise
@@ -201,12 +245,14 @@ async def update_topic_progress(
     """
     try:
         # Check if progress record exists
-        progress_response = supabase.table("progress").select("*").eq(
-            "user_id", user_id
-        ).eq("topic", topic).execute()
-        
+        progress_response = await asyncio.to_thread(
+            supabase.table("progress").select("*").eq(
+                "user_id", user_id
+            ).eq("topic", topic).execute
+        )
+
         current_time = datetime.utcnow().isoformat()
-        
+
         if not progress_response.data:
             # Create new progress record
             progress_data = {
@@ -218,19 +264,21 @@ async def update_topic_progress(
                 "current_difficulty": difficulty,
                 "best_score": score
             }
-            result = supabase.table("progress").insert(progress_data).execute()
+            result = await asyncio.to_thread(
+                supabase.table("progress").insert(progress_data).execute
+            )
         else:
             # Update existing progress record
             existing = progress_response.data[0]
             total_attempts = existing.get("total_attempts", 0) + 1
             current_avg = existing.get("avg_score", 0)
-            
+
             # Calculate new average score
             new_avg = ((current_avg * (total_attempts - 1)) + score) / total_attempts
-            
+
             # Update best score if current score is higher
             best_score = max(existing.get("best_score", 0), score)
-            
+
             update_data = {
                 "avg_score": round(new_avg, 2),
                 "total_attempts": total_attempts,
@@ -238,13 +286,15 @@ async def update_topic_progress(
                 "current_difficulty": difficulty,
                 "best_score": best_score
             }
-            
-            result = supabase.table("progress").update(update_data).eq(
-                "user_id", user_id
-            ).eq("topic", topic).execute()
-        
+
+            result = await asyncio.to_thread(
+                supabase.table("progress").update(update_data).eq(
+                    "user_id", user_id
+                ).eq("topic", topic).execute
+            )
+
         return result.data[0] if result.data else {}
-        
+
     except Exception as e:
         print(f"Error updating topic progress: {e}")
         raise
@@ -281,10 +331,12 @@ async def log_xp_gain(
             "timestamp": datetime.utcnow().isoformat(),
             "details": details or {}
         }
-        
-        result = supabase.table("xp_logs").insert(log_entry).execute()
+
+        result = await asyncio.to_thread(
+            supabase.table("xp_logs").insert(log_entry).execute
+        )
         return result.data[0] if result.data else {}
-        
+
     except Exception as e:
         print(f"Error logging XP gain: {e}")
         raise
@@ -305,7 +357,9 @@ async def get_quiz_result(
         Quiz result data or None if not found
     """
     try:
-        result = supabase.table("quiz_results").select("*").eq("id", quiz_id).execute()
+        result = await asyncio.to_thread(
+            supabase.table("quiz_results").select("*").eq("id", quiz_id).execute
+        )
         return result.data[0] if result.data else None
     except Exception as e:
         print(f"Error retrieving quiz result: {e}")
@@ -332,11 +386,13 @@ async def get_user_quiz_history(
     """
     try:
         query = supabase.table("quiz_results").select("*").eq("user_id", user_id)
-        
+
         if topic:
             query = query.eq("topic", topic)
-        
-        result = query.order("timestamp", desc=True).limit(limit).execute()
+
+        result = await asyncio.to_thread(
+            query.order("timestamp", desc=True).limit(limit).execute
+        )
         return result.data or []
     except Exception as e:
         print(f"Error retrieving quiz history: {e}")

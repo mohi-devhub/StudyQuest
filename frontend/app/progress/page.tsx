@@ -65,20 +65,14 @@ export default function ProgressDashboard() {
     try {
       setLoading(true);
 
-      const API_BASE =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-      // Fetch user stats from v2 API
-      const statsRes = await fetch(
-        `${API_BASE}/progress/v2/user/${userId}/stats`,
+      // Fetch user stats and topics from v2 API with auth headers
+      const statsData = await getApi<any>(
+        `progress/v2/user/${userId}/stats`,
       );
-      const statsData = await statsRes.json();
 
-      // Fetch topics from v2 API
-      const topicsRes = await fetch(
-        `${API_BASE}/progress/v2/user/${userId}/topics`,
+      const topicsData = await getApi<any>(
+        `progress/v2/user/${userId}/topics`,
       );
-      const topicsData = await topicsRes.json();
 
       // Map v2 data to existing interface
       const userData: UserData = {

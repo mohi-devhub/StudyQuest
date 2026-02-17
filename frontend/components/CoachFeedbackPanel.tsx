@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { getApi } from "@/utils/api";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("CoachFeedbackPanel");
@@ -45,15 +46,7 @@ export default function CoachFeedbackPanel({ userId }: CoachFeedbackProps) {
       setLoading(true);
       setError(null);
 
-      const API_BASE =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const response = await fetch(`${API_BASE}/coach/feedback/${userId}`);
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch coach feedback");
-      }
-
-      const data = await response.json();
+      const data = await getApi<CoachFeedback>(`coach/feedback/${userId}`);
       setFeedback(data);
     } catch (err: any) {
       setError(err.message);
