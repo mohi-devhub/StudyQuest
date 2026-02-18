@@ -47,14 +47,19 @@ export default function SignupPage() {
       await signUp(email, password, username);
       setSuccess(true);
 
-      // Send welcome email via Resend (fire-and-forget)
+      // Send welcome email via Resend (fire-and-forget, non-blocking)
       fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: email, username }),
-      }).catch(() => {
-        // Non-critical — don't block signup flow on email failure
-      });
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            console.error("[Email] Failed to send welcome email:", body);
+          }
+        })
+        .catch((err) => console.error("[Email] Network error:", err));
     } catch (err: any) {
       setError(err.message || "Failed to create account");
     } finally {
