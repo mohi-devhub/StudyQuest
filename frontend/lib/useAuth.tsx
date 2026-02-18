@@ -10,7 +10,7 @@ interface AuthContextType {
   userId: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string) => Promise<{ requiresEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -51,13 +51,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, username: string) => {
+  const signUp = async (email: string, password: string, username: string): Promise<{ requiresEmailConfirmation: boolean }> => {
     // Get the current origin for redirect URL — must point to the auth callback
     // handler so the PKCE code can be exchanged for a session.
     const redirectUrl = typeof window !== 'undefined'
       ? `${window.location.origin}/auth/callback`
       : 'https://study-quest-mohi-devhubs-projects.vercel.app/auth/callback';
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -70,10 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) throw error;
 
-    // Wait for the session to be established
+    // If a session was returned immediately, Supabase auto-confirmed the user
+    // (email confirmation disabled). Otherwise, confirmation email was sent.
     if (data.session) {
       setUser(data.session.user);
+      return { requiresEmailConfirmation: false };
     }
+
+    return { requiresEmailConfirmation: true };
   };
 
   const signOut = async () => {

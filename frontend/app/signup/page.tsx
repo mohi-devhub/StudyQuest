@@ -16,6 +16,9 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const { signUp } = useAuth();
   const router = useRouter();
 
@@ -44,7 +47,17 @@ export default function SignupPage() {
     }
 
     try {
-      await signUp(email, password, username);
+      const { requiresEmailConfirmation } = await signUp(email, password, username);
+
+      if (!requiresEmailConfirmation) {
+        // Supabase auto-confirmed the user (email confirmation disabled in project settings).
+        // Session is already established — go straight to dashboard.
+        router.push("/dashboard");
+        return;
+      }
+
+      // Supabase sent a verification email — show the check-email screen.
+      setSignupEmail(email);
       setSuccess(true);
 
       // Send welcome email via Resend (fire-and-forget, non-blocking)
@@ -67,6 +80,30 @@ export default function SignupPage() {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!signupEmail) return;
+    setResendLoading(true);
+    setResendMessage(null);
+    try {
+      const { error } = await (await import("@/lib/supabase")).supabase.auth.resend({
+        type: "signup",
+        email: signupEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) {
+        setResendMessage(`ERROR: ${error.message}`);
+      } else {
+        setResendMessage("Verification email resent. Check your inbox.");
+      }
+    } catch {
+      setResendMessage("ERROR: Failed to resend. Please try again.");
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   if (success) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
@@ -77,13 +114,30 @@ export default function SignupPage() {
         >
           <div className="text-4xl mb-4">✉️</div>
           <h2 className="text-2xl font-bold mb-4">// CHECK_YOUR_EMAIL</h2>
-          <p className="text-gray-400 mb-6">
-            We've sent a confirmation link to your email address.
-            Please check your inbox and click the link to activate your account.
+          <p className="text-gray-400 mb-2">
+            We've sent a confirmation link to:
           </p>
+          <p className="text-white font-mono mb-6">{signupEmail}</p>
+          <p className="text-gray-400 mb-6 text-sm">
+            Click the link in the email to activate your account.
+          </p>
+
+          {resendMessage && (
+            <p className={`text-sm mb-4 ${resendMessage.startsWith("ERROR") ? "text-red-400" : "text-green-400"}`}>
+              {resendMessage}
+            </p>
+          )}
+
           <p className="text-sm text-gray-500 mb-4">
-            Don't see it? Check your spam folder.
+            Don't see it? Check your spam folder, or resend below.
           </p>
+          <button
+            onClick={handleResendVerification}
+            disabled={resendLoading}
+            className="w-full border border-gray-600 py-3 text-gray-400 hover:border-white hover:text-white transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed font-mono text-sm"
+          >
+            {resendLoading ? "SENDING..." : "RESEND_VERIFICATION_EMAIL"}
+          </button>
           <button
             onClick={() => router.push('/login')}
             className="w-full border border-white py-3 hover:bg-white hover:text-black transition-all"
