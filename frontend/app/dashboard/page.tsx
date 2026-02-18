@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import XPProgressBar from "@/components/XPProgressBar";
 import TopicCard from "@/components/TopicCard";
 import RecommendedCard from "@/components/RecommendedCard";
 import LoadingScreen from "@/components/LoadingScreen";
-import { useToast } from "@/components/Toast";
+import { useToast, ToastContainer } from "@/components/Toast";
 import { useRealtimeXP } from "@/lib/useRealtimeXP";
 import { useAuth } from "@/lib/useAuth";
 import { useLoadingState } from "@/hooks/useLoadingState";
@@ -61,6 +61,7 @@ export default function Dashboard() {
   const { userId, user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [progress, setProgress] = useState<UserProgress | null>(null);
+  const prevLevelRef = useRef<number>(-1);
   const [recommendations, setRecommendations] =
     useState<RecommendationResponse | null>(null);
   const { isLoading, withLoading } = useLoadingState(true);
@@ -90,7 +91,7 @@ export default function Dashboard() {
   });
 
   // Real-time updates
-  const { showToast, ToastContainer } = useToast();
+  const { showToast, toasts, dismissToast } = useToast();
 
   // Stable callbacks for real-time events
   const handleXPGain = useCallback(
@@ -103,17 +104,11 @@ export default function Dashboard() {
       });
       showToast(`${topic || "Study"} completed!`, xp, "xp");
 
-      // Update progress with new XP
+      // Update progress with new XP — no side effects inside the updater
       setProgress((prev) => {
         if (!prev) return prev;
         const newTotalXP = prev.total_xp + xp;
         const newLevel = Math.floor(newTotalXP / 500) + 1;
-
-        // Check for level up
-        if (newLevel > prev.level) {
-          handleLevelUp(newLevel);
-        }
-
         return {
           ...prev,
           total_xp: newTotalXP,
@@ -189,6 +184,20 @@ export default function Dashboard() {
     },
     [],
   );
+
+  // Detect level-up after state update — side effect kept outside the setState updater
+  useEffect(() => {
+    if (!progress) return;
+    if (prevLevelRef.current === -1) {
+      // First load: record baseline level without triggering level-up
+      prevLevelRef.current = progress.level;
+      return;
+    }
+    if (progress.level > prevLevelRef.current) {
+      handleLevelUp(progress.level);
+    }
+    prevLevelRef.current = progress.level;
+  }, [progress?.level]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Subscribe to real-time XP updates
   const { isConnected } = useRealtimeXP({
@@ -571,7 +580,7 @@ export default function Dashboard() {
       </div>
 
       {/* Toast Notifications */}
-      <ToastContainer />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Celebration Modal */}
       <CelebrationModal

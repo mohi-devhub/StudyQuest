@@ -53,6 +53,31 @@ function XPToast({ toast, onDismiss }: XPToastProps) {
   );
 }
 
+interface ToastContainerProps {
+  toasts: Toast[];
+  onDismiss: (id: string) => void;
+}
+
+export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
+  return (
+    <AnimatePresence mode="popLayout">
+      {toasts.map((toast, index) => (
+        <motion.div
+          key={toast.id}
+          style={{
+            position: "fixed",
+            top: `${32 + index * 80}px`,
+            left: "50%",
+            zIndex: 50,
+          }}
+        >
+          <XPToast toast={toast} onDismiss={onDismiss} />
+        </motion.div>
+      ))}
+    </AnimatePresence>
+  );
+}
+
 let toastCounter = 0;
 
 export function useToast() {
@@ -71,23 +96,5 @@ export function useToast() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const ToastContainer = () => (
-    <AnimatePresence mode="popLayout">
-      {toasts.map((toast, index) => (
-        <motion.div
-          key={toast.id}
-          style={{
-            position: "fixed",
-            top: `${32 + index * 80}px`,
-            left: "50%",
-            zIndex: 50,
-          }}
-        >
-          <XPToast toast={toast} onDismiss={dismissToast} />
-        </motion.div>
-      ))}
-    </AnimatePresence>
-  );
-
-  return { showToast, ToastContainer };
+  return { showToast, toasts, dismissToast };
 }
