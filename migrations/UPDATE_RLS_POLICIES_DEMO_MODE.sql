@@ -1,11 +1,21 @@
 -- ===========================================================================
 -- UPDATE RLS POLICIES TO SUPPORT DEMO MODE
 -- ===========================================================================
--- This migration updates RLS policies to allow 'demo_user' access for testing
--- while maintaining security for real authenticated users.
--- 
--- IMPORTANT: In production, remove the demo_user exceptions!
+-- ⛔ DEVELOPMENT / STAGING USE ONLY ⛔
+-- This migration allows a hardcoded 'demo_user' to bypass auth checks.
+-- NEVER apply this migration to a production database.
+-- For production, run UPDATE_RLS_POLICIES_PRODUCTION.sql instead.
 -- ===========================================================================
+
+-- Safety guard: abort immediately if running in production
+DO $$
+BEGIN
+  IF current_setting('app.environment', true) = 'production' THEN
+    RAISE EXCEPTION
+      'SECURITY VIOLATION: UPDATE_RLS_POLICIES_DEMO_MODE.sql must NOT be applied '
+      'in production. Run UPDATE_RLS_POLICIES_PRODUCTION.sql instead.';
+  END IF;
+END $$;
 
 -- ===========================================================================
 -- STEP 1: DROP ALL EXISTING POLICIES (INCLUDING DUPLICATES)
