@@ -66,10 +66,14 @@ export async function middleware(req: NextRequest) {
   );
 
   // Public routes that don't require authentication (includes root for landing page)
-  const publicRoutes = ["/", "/landing"];
-  const isPublicRoute = 
-    req.nextUrl.pathname === "/" || 
-    publicRoutes.some((route) => req.nextUrl.pathname.startsWith(route + "/"));
+  // /auth/callback must be public so the email-verification redirect can reach it
+  // before a session exists.
+  const publicRoutes = ["/", "/landing", "/auth/callback"];
+  const isPublicRoute =
+    req.nextUrl.pathname === "/" ||
+    publicRoutes.some((route) =>
+      req.nextUrl.pathname === route || req.nextUrl.pathname.startsWith(route + "/")
+    );
 
   // If user is not authenticated and trying to access protected route
   if (!session && !isPublicRoute && !isAuthRoute) {

@@ -52,10 +52,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, username: string) => {
-    // Get the current origin for redirect URL
-    const redirectUrl = typeof window !== 'undefined' 
-      ? `${window.location.origin}/login`
-      : 'https://study-quest-mohi-devhubs-projects.vercel.app/login';
+    // Get the current origin for redirect URL — must point to the auth callback
+    // handler so the PKCE code can be exchanged for a session.
+    const redirectUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/callback`
+      : 'https://study-quest-mohi-devhubs-projects.vercel.app/auth/callback';
     
     const { data, error } = await supabase.auth.signUp({
       email,

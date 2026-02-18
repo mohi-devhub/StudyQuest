@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/useAuth";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -15,6 +15,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const { signIn } = useAuth();
   const router = useRouter();
+
+  // Show any error passed via query param (e.g. from the auth callback route)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get("error");
+    if (errorParam) {
+      setError(errorParam);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

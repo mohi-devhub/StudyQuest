@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, Field
 from config.supabase_client import get_supabase
 from utils.auth import verify_user
@@ -84,15 +85,32 @@ async def signup(request: SignUpRequest, req: Request):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to create user account"
             )
-        
+
+        # When Supabase email confirmations are enabled, session is None until
+        # the user clicks the verification link. Return 202 to indicate that the
+        # account was created but is pending email confirmation.
+        if response.session is None:
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "message": "Account created. Please check your email to confirm your account.",
+                    "requires_email_confirmation": True,
+                    "user": {
+                        "id": str(response.user.id),
+                        "email": response.user.email,
+                        "created_at": str(response.user.created_at),
+                    },
+                },
+            )
+
         return {
             "access_token": response.session.access_token,
             "token_type": "bearer",
             "user": {
                 "id": response.user.id,
                 "email": response.user.email,
-                "created_at": response.user.created_at
-            }
+                "created_at": str(response.user.created_at),
+            },
         }
         
     except HTTPException:
