@@ -46,7 +46,15 @@ export default function SignupPage() {
     try {
       await signUp(email, password, username);
       setSuccess(true);
-      // User needs to confirm email before logging in
+
+      // Send welcome email via Resend (fire-and-forget)
+      fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: email, username }),
+      }).catch(() => {
+        // Non-critical — don't block signup flow on email failure
+      });
     } catch (err: any) {
       setError(err.message || "Failed to create account");
     } finally {
