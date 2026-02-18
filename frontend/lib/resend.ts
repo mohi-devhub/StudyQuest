@@ -2,8 +2,9 @@ import { Resend } from "resend";
 
 export async function sendWelcomeEmail(to: string, username: string) {
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const from = process.env.RESEND_FROM_EMAIL ?? "StudyQuest <onboarding@resend.dev>";
   return resend.emails.send({
-    from: "StudyQuest <onboarding@resend.dev>",
+    from,
     to,
     subject: "Welcome to StudyQuest // ACCOUNT_CREATED",
     html: `
