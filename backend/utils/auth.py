@@ -1,8 +1,10 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from config.supabase_client import get_admin_supabase
+from utils.logger import get_logger
 from typing import Optional
 
+logger = get_logger(__name__)
 security = HTTPBearer()
 
 
@@ -37,10 +39,13 @@ async def verify_user(
         
         return user_response.user
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.warning("Token verification failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
+            detail="Authentication failed",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

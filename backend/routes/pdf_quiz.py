@@ -11,7 +11,13 @@ import io
 from utils.auth import verify_user
 from agents.quiz_agent import generate_quiz_with_fallback
 from utils.quiz_sessions import create_session
+from utils.logger import get_logger
 import time
+
+logger = get_logger(__name__)
+
+# Magic bytes that identify a valid PDF file
+_PDF_MAGIC = b"%PDF-"
 
 router = APIRouter(
     prefix="/quiz",
@@ -60,8 +66,11 @@ def extract_text_from_pdf(pdf_file: bytes) -> str:
         
         return text
     
+    except ValueError:
+        raise
     except Exception as e:
-        raise ValueError(f"Failed to extract text from PDF: {str(e)}")
+        logger.error("PDF text extraction failed", error_type=type(e).__name__)
+        raise ValueError("Failed to extract text from PDF. The file may be corrupted or password-protected.")
 
 
 def chunk_text(text: str, max_chars: int = 3000) -> str:
@@ -137,21 +146,22 @@ async def generate_quiz_from_pdf(
     start_time = time.time()
     
     try:
-        # Validate file type
-        if not file.content_type == "application/pdf":
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file type. Only PDF files are supported."
-            )
-        
-        # Read file content
+        # Read file content first so we can inspect actual bytes
         pdf_content = await file.read()
-        
-        # Validate file size (10MB max)
+
+        # Validate file size (10MB max) before any processing
         if len(pdf_content) > 10 * 1024 * 1024:
             raise HTTPException(
                 status_code=400,
                 detail="File too large. Maximum size is 10MB."
+            )
+
+        # Validate actual content via magic bytes — do NOT trust client-supplied
+        # Content-Type header, which can be trivially spoofed.
+        if not pdf_content.startswith(_PDF_MAGIC):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file type. Only PDF files are supported."
             )
         
         # Extract text from PDF
@@ -183,9 +193,10 @@ async def generate_quiz_from_pdf(
                 raise ValueError("No questions generated")
             
         except Exception as e:
+            logger.error("PDF quiz generation failed", error_type=type(e).__name__)
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to generate quiz questions: {str(e)}"
+                detail="Failed to generate quiz questions. Please try again."
             )
         
         # Calculate generation time
@@ -215,7 +226,8 @@ async def generate_quiz_from_pdf(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Unexpected error processing PDF", error_type=type(e).__name__)
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected error processing PDF: {str(e)}"
+            detail="Unexpected error processing PDF. Please try again."
         )

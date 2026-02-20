@@ -4,8 +4,11 @@ from pydantic import BaseModel, EmailStr, Field
 from config.supabase_client import get_supabase
 from utils.auth import verify_user
 from utils.validation import validate_password_strength
+from utils.logger import get_logger
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+logger = get_logger(__name__)
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -116,8 +119,8 @@ async def signup(request: SignUpRequest, req: Request):
     except HTTPException:
         raise
     except Exception as e:
-        # Handle specific Supabase errors
         error_message = str(e)
+        logger.warning("Signup error", error_type=type(e).__name__)
         if "already registered" in error_message.lower():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -125,7 +128,7 @@ async def signup(request: SignUpRequest, req: Request):
             )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Signup failed: {error_message}"
+            detail="Failed to create user account. Please try again."
         )
 
 
@@ -165,9 +168,10 @@ async def login(request: LoginRequest, req: Request):
     except HTTPException:
         raise
     except Exception as e:
+        logger.warning("Login error", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Login failed: {str(e)}"
+            detail="Invalid email or password"
         )
 
 
@@ -197,7 +201,8 @@ async def logout(current_user: dict = Depends(verify_user)):
         return {"message": "Successfully logged out"}
         
     except Exception as e:
+        logger.warning("Logout error", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Logout failed: {str(e)}"
+            detail="Logout failed. Please try again."
         )

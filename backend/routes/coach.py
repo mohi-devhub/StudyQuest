@@ -7,6 +7,9 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 from agents.adaptive_coach_agent import generate_adaptive_feedback
 from utils.auth import verify_user, validate_user_access
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Import rate limiter
 from slowapi import Limiter
@@ -44,9 +47,10 @@ async def get_adaptive_feedback(request: Request, user_id: str, current_user: di
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error("Adaptive feedback generation failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate feedback: {str(e)}"
+            detail="Failed to generate feedback. Please try again."
         )
 
 

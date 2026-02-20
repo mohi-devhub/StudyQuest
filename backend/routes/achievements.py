@@ -7,9 +7,12 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 from datetime import datetime
 from utils.auth import verify_user
+from utils.logger import get_logger
 
 # Supabase client
 from config.supabase_client import supabase
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/achievements",
@@ -124,7 +127,8 @@ async def get_all_badges(category: Optional[str] = None):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get badges: {str(e)}")
+        logger.error("Failed to get badges", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get badges. Please try again.")
 
 
 @router.get("/user/{user_id}/badges")
@@ -135,7 +139,7 @@ async def get_user_badges(user_id: str, unseen_only: bool = False, current_user:
     Query params:
     - unseen_only: If true, only return badges user hasn't seen yet
     """
-    if user_id != current_user['id']:
+    if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badges")
     
     try:
@@ -186,7 +190,8 @@ async def get_user_badges(user_id: str, unseen_only: bool = False, current_user:
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get user badges: {str(e)}")
+        logger.error("Failed to get user badges", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get user badges. Please try again.")
 
 
 @router.get("/user/{user_id}/summary")
@@ -194,7 +199,7 @@ async def get_user_achievements_summary(user_id: str, current_user: dict = Depen
     """
     Get summary of user's achievements (badge counts, milestones).
     """
-    if user_id != current_user['id']:
+    if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden: You can only access your own achievement summary")
     
     try:
@@ -216,7 +221,8 @@ async def get_user_achievements_summary(user_id: str, current_user: dict = Depen
         return summary.data
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get achievements summary: {str(e)}")
+        logger.error("Failed to get achievements summary", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get achievements summary. Please try again.")
 
 
 @router.post("/user/{user_id}/check")
@@ -225,7 +231,7 @@ async def check_and_award_badges(user_id: str, current_user: dict = Depends(veri
     Check user's stats and award any eligible badges.
     Returns list of newly unlocked badges.
     """
-    if user_id != current_user['id']:
+    if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden: You can only check and award badges for your own account")
     
     try:
@@ -242,7 +248,8 @@ async def check_and_award_badges(user_id: str, current_user: dict = Depends(veri
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to check badges: {str(e)}")
+        logger.error("Failed to check badges", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to check badges. Please try again.")
 
 
 @router.post("/user/{user_id}/mark-seen")
@@ -251,7 +258,7 @@ async def mark_badges_as_seen(user_id: str, badge_ids: List[str] = None, current
     Mark badge notifications as seen by the user.
     If badge_ids provided, mark only those. Otherwise mark all unseen.
     """
-    if user_id != current_user['id']:
+    if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden: You can only mark your own badges as seen")
     
     try:
@@ -270,7 +277,8 @@ async def mark_badges_as_seen(user_id: str, badge_ids: List[str] = None, current
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to mark badges as seen: {str(e)}")
+        logger.error("Failed to mark badges as seen", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to mark badges as seen. Please try again.")
 
 
 @router.get("/milestones")
@@ -294,13 +302,14 @@ async def get_all_milestones(category: Optional[str] = None):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get milestones: {str(e)}")
+        logger.error("Failed to get milestones", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get milestones. Please try again.")
 
 
 @router.get("/user/{user_id}/milestones")
 async def get_user_milestones(user_id: str, current_user: dict = Depends(verify_user)):
     """Get milestones achieved by a specific user"""
-    if user_id != current_user['id']:
+    if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden: You can only access your own milestones")
     
     try:
@@ -345,7 +354,8 @@ async def get_user_milestones(user_id: str, current_user: dict = Depends(verify_
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get user milestones: {str(e)}")
+        logger.error("Failed to get user milestones", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get user milestones. Please try again.")
 
 
 @router.get("/leaderboard/badges")
@@ -362,7 +372,8 @@ async def get_badge_leaderboard(limit: int = 10):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get badge leaderboard: {str(e)}")
+        logger.error("Failed to get badge leaderboard", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get badge leaderboard. Please try again.")
 
 
 @router.get("/user/{user_id}/progress")
@@ -371,7 +382,7 @@ async def get_badge_progress(user_id: str, current_user: dict = Depends(verify_u
     Get user's progress toward unearned badges.
     Shows current stats vs. requirements.
     """
-    if user_id != current_user['id']:
+    if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden: You can only access your own badge progress")
     
     try:
@@ -428,4 +439,5 @@ async def get_badge_progress(user_id: str, current_user: dict = Depends(verify_u
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get badge progress: {str(e)}")
+        logger.error("Failed to get badge progress", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get badge progress. Please try again.")

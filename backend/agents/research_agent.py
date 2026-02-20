@@ -83,7 +83,12 @@ Make sure each bullet point is clear, concise, and easy to understand for someon
         
         # Generate content
         response = model_instance.generate_content(prompt)
-        
+
+        # Guard: response.text is None when Gemini blocks for safety reasons
+        if response.text is None:
+            finish_reason = getattr(response.candidates[0], 'finish_reason', 'UNKNOWN') if response.candidates else 'UNKNOWN'
+            raise ValueError(f"AI response blocked by safety filter (finish_reason={finish_reason})")
+
         # Parse the JSON response - handle markdown code blocks
         response_text = response.text.strip()
         if response_text.startswith("```"):

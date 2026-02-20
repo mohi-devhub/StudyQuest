@@ -14,9 +14,13 @@ from utils.error_handlers import (
     ErrorResponse
 )
 from utils.quiz_sessions import grade_session
+from utils.logger import get_logger
+import asyncio
 
 # Supabase client
 from config.supabase_client import supabase
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/progress/v2",
@@ -182,35 +186,33 @@ async def submit_quiz(
 
         xp_earned = calculate_xp(correct, total, validated_difficulty)
 
-        # --- Get or create user ---
+        # --- Get user (must already exist — created at signup) ---
         try:
-            user_result = supabase.table('users').select('total_xp, level, username').eq(
-                'user_id', user_id
-            ).execute()
+            user_result = await asyncio.to_thread(
+                lambda: supabase.table('users').select('total_xp, level, username').eq(
+                    'user_id', user_id
+                ).execute()
+            )
 
             if not user_result.data or len(user_result.data) == 0:
-                print(f"Creating new user: {user_id}")
-                new_user = supabase.table('users').insert({
-                    'user_id': user_id,
-                    'username': f'user_{user_id[:8]}',
-                    'total_xp': 0,
-                    'level': 1
-                }).execute()
+                logger.warning("Quiz submission attempted for non-existent user", user_id=user_id)
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "status": "error",
+                        "message": "User profile not found. Please complete signup first.",
+                        "code": "USER_NOT_FOUND"
+                    }
+                )
 
-                if new_user.data:
-                    previous_xp = 0
-                    previous_level = 1
-                else:
-                    raise Exception("Failed to create user")
-            else:
-                user_data = user_result.data[0]
-                previous_xp = user_data.get('total_xp', 0)
-                previous_level = user_data.get('level', 1)
+            user_data = user_result.data[0]
+            previous_xp = user_data.get('total_xp', 0)
+            previous_level = user_data.get('level', 1)
 
         except HTTPException:
             raise
         except Exception as e:
-            print(f"User lookup/create error: {str(e)}")
+            logger.error("User lookup error during quiz submission", error_type=type(e).__name__)
             previous_xp = 0
             previous_level = 1
 
@@ -219,75 +221,81 @@ async def submit_quiz(
 
         # --- Insert quiz score ---
         try:
-            quiz_result = supabase.table('quiz_scores').insert({
-                'user_id': user_id,
-                'topic': validated_topic,
-                'difficulty': validated_difficulty,
-                'correct': correct,
-                'total': total,
-                'score': score,
-                'xp_gained': xp_earned,
-                'time_taken': submission.time_taken,
-                'answers': submission.answers,
-                'questions': graded["questions"],
-                'metadata': {}
-            }).execute()
+            quiz_result = await asyncio.to_thread(
+                lambda: supabase.table('quiz_scores').insert({
+                    'user_id': user_id,
+                    'topic': validated_topic,
+                    'difficulty': validated_difficulty,
+                    'correct': correct,
+                    'total': total,
+                    'score': score,
+                    'xp_gained': xp_earned,
+                    'time_taken': submission.time_taken,
+                    'answers': submission.answers,
+                    'questions': graded["questions"],
+                    'metadata': {}
+                }).execute()
+            )
         except Exception as e:
-            print(f"Quiz score insertion error: {str(e)}")
+            logger.error("Quiz score insertion failed", error_type=type(e).__name__)
             raise handle_database_error("quiz submission")
 
         # --- Insert XP history ---
         try:
-            supabase.table('xp_history').insert({
-                'user_id': user_id,
-                'xp_change': xp_earned,
-                'reason': 'quiz_complete',
-                'topic': validated_topic,
-                'quiz_id': quiz_result.data[0]['id'],
-                'previous_xp': previous_xp,
-                'new_xp': new_xp,
-                'previous_level': previous_level,
-                'new_level': new_level,
-                'metadata': {
-                    'score': score,
-                    'difficulty': validated_difficulty,
-                    'correct': correct,
-                    'total': total
-                }
-            }).execute()
+            await asyncio.to_thread(
+                lambda: supabase.table('xp_history').insert({
+                    'user_id': user_id,
+                    'xp_change': xp_earned,
+                    'reason': 'quiz_complete',
+                    'topic': validated_topic,
+                    'quiz_id': quiz_result.data[0]['id'],
+                    'previous_xp': previous_xp,
+                    'new_xp': new_xp,
+                    'previous_level': previous_level,
+                    'new_level': new_level,
+                    'metadata': {
+                        'score': score,
+                        'difficulty': validated_difficulty,
+                        'correct': correct,
+                        'total': total
+                    }
+                }).execute()
+            )
         except Exception as e:
-            print(f"XP history insertion error: {str(e)}")
+            logger.warning("XP history insertion failed (non-fatal)", error_type=type(e).__name__)
 
         # --- Update user XP ---
         try:
-            user_update = supabase.table('users').update({
-                'total_xp': new_xp,
-                'level': new_level
-            }).match({'user_id': user_id}).execute()
+            user_update = await asyncio.to_thread(
+                lambda: supabase.table('users').update({
+                    'total_xp': new_xp,
+                    'level': new_level
+                }).match({'user_id': user_id}).execute()
+            )
 
             if not user_update.data or len(user_update.data) == 0:
-                print(f"WARNING: User XP update returned no data for {user_id}")
+                logger.warning("User XP update returned no rows", user_id=user_id)
         except Exception as e:
-            print(f"User update error: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error("User XP update failed", error_type=type(e).__name__)
             raise handle_database_error("user XP update")
 
         # --- Insert xp_logs for backward compatibility ---
         try:
-            supabase.table('xp_logs').insert({
-                'user_id': user_id,
-                'xp_amount': xp_earned,
-                'source': 'quiz_complete',
-                'topic': validated_topic,
-                'metadata': {
-                    'score': score,
-                    'difficulty': validated_difficulty,
-                    'quiz_id': quiz_result.data[0]['id']
-                }
-            }).execute()
+            await asyncio.to_thread(
+                lambda: supabase.table('xp_logs').insert({
+                    'user_id': user_id,
+                    'xp_amount': xp_earned,
+                    'source': 'quiz_complete',
+                    'topic': validated_topic,
+                    'metadata': {
+                        'score': score,
+                        'difficulty': validated_difficulty,
+                        'quiz_id': quiz_result.data[0]['id']
+                    }
+                }).execute()
+            )
         except Exception as e:
-            print(f"XP log insertion error: {str(e)}")
+            logger.warning("XP log insertion failed (non-fatal)", error_type=type(e).__name__)
 
         return {
             "status": "success",
@@ -311,7 +319,7 @@ async def submit_quiz(
         raise
 
     except Exception as e:
-        print(f"Quiz submission error: {str(e)}")
+        logger.error("Quiz submission failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=500,
             detail={
@@ -327,59 +335,64 @@ async def get_user_progress(user_id: str, current_user: dict = Depends(verify_us
     """Get complete user progress including all topics and XP"""
     validate_user_access(user_id, current_user)
     try:
-        # Get user data
-        user = supabase.table('users').select('*').eq('user_id', user_id).execute()
-        
-        # Create user if doesn't exist
+        # Get user data (must already exist — created at signup)
+        user = await asyncio.to_thread(
+            lambda: supabase.table('users').select('*').eq('user_id', user_id).execute()
+        )
+
         if not user.data or len(user.data) == 0:
-            print(f"User {user_id} not found, creating...")
-            new_user = supabase.table('users').insert({
-                'user_id': user_id,
-                'username': f'user_{user_id[:8]}',
-                'total_xp': 0,
-                'level': 1
-            }).execute()
-            
-            if new_user.data:
-                user.data = new_user.data
-            else:
-                raise HTTPException(status_code=500, detail="Failed to create user")
-        
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "status": "error",
+                    "message": "User profile not found. Please complete signup first.",
+                    "code": "USER_NOT_FOUND"
+                }
+            )
+
         # Get all topics
-        topics = supabase.table('user_topics').select('*').eq('user_id', user_id).execute()
-        
-        # Transform topics to match frontend expectations
+        topics = await asyncio.to_thread(
+            lambda: supabase.table('user_topics').select('*').eq('user_id', user_id).execute()
+        )
+
+        # Transform topics — expose both best_score and avg_score using correct field names
         transformed_topics = [
             {
                 'topic': t['topic'],
-                'avg_score': t.get('best_score', 0),  # Map best_score to avg_score
-                'total_attempts': t.get('attempts', 0),  # Map attempts to total_attempts
-                'last_attempt': t.get('last_attempted_at'),  # Map last_attempted_at to last_attempt
+                'best_score': t.get('best_score', 0),
+                'avg_score': t.get('avg_score', t.get('best_score', 0)),
+                'total_attempts': t.get('attempts', 0),
+                'last_attempt': t.get('last_attempted_at'),
                 'status': t.get('status'),
                 'created_at': t.get('created_at'),
                 'updated_at': t.get('updated_at')
             }
             for t in (topics.data or [])
         ]
-        
+
         # Get recent XP history
-        xp_history = supabase.table('xp_history').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(10).execute()
-        
+        xp_history = await asyncio.to_thread(
+            lambda: supabase.table('xp_history').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(10).execute()
+        )
+
         # Get quiz count
-        quiz_count = supabase.table('quiz_scores').select('id', count='exact').eq('user_id', user_id).execute()
-        
+        quiz_count = await asyncio.to_thread(
+            lambda: supabase.table('quiz_scores').select('id', count='exact').eq('user_id', user_id).execute()
+        )
+
         return {
-            "user": user.data[0] if user.data else None,  # Return single user object, not array
+            "user": user.data[0] if user.data else None,
             "topics": transformed_topics,
             "recent_xp_history": xp_history.data,
             "total_quizzes": quiz_count.count,
             "stats": calculate_user_stats(topics.data)
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get user progress: {str(e)}")
+        logger.error("Failed to get user progress", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get user progress. Please try again.")
 
 
 @router.get("/user/{user_id}/topics")
@@ -401,7 +414,8 @@ async def get_user_topics(user_id: str, status: Optional[str] = None, current_us
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get topics: {str(e)}")
+        logger.error("Failed to get user topics", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get topics. Please try again.")
 
 
 @router.get("/user/{user_id}/topics/{topic}")
@@ -430,7 +444,8 @@ async def get_topic_progress(user_id: str, topic: str, current_user: dict = Depe
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get topic progress: {str(e)}")
+        logger.error("Failed to get topic progress", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get topic progress. Please try again.")
 
 
 @router.get("/user/{user_id}/xp-history")
@@ -447,7 +462,8 @@ async def get_xp_history(user_id: str, limit: int = 50, current_user: dict = Dep
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get XP history: {str(e)}")
+        logger.error("Failed to get XP history", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get XP history. Please try again.")
 
 
 @router.get("/user/{user_id}/quiz-history")
@@ -469,7 +485,8 @@ async def get_quiz_history(user_id: str, limit: int = 50, topic: Optional[str] =
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get quiz history: {str(e)}")
+        logger.error("Failed to get quiz history", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get quiz history. Please try again.")
 
 
 @router.get("/user/{user_id}/stats")
@@ -515,7 +532,7 @@ async def get_user_stats(user_id: str, current_user: dict = Depends(verify_user)
         }
         
     except Exception as e:
-        print(f"Error getting user stats: {str(e)}")
+        logger.error("Error getting user stats", error_type=type(e).__name__)
         # Return default stats on error
         return {
             "user_id": user_id,
@@ -544,7 +561,8 @@ async def get_leaderboard(limit: int = 10):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get leaderboard: {str(e)}")
+        logger.error("Failed to get leaderboard", error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Failed to get leaderboard. Please try again.")
 
 
 # ============================================================================

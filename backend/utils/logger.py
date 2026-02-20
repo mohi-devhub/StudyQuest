@@ -6,17 +6,17 @@ Replaces print() statements with structured, contextual logging.
 import logging
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 
 class JSONFormatter(logging.Formatter):
     """Custom JSON formatter for structured logging"""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON"""
         log_data = {
-            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'level': record.levelname,
             'logger': record.name,
             'message': record.getMessage(),

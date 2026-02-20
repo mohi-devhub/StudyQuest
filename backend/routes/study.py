@@ -19,12 +19,14 @@ from utils.error_handlers import (
 from utils.cache_utils import get_cached_content, set_cached_content
 from typing import List, Dict, Optional
 import asyncio
+from utils.logger import get_logger
 
 # Import rate limiter
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/study",
@@ -336,8 +338,7 @@ async def create_study_session(
         )
         
     except Exception as e:
-        # Handle unexpected errors
-        print(f"Study package generation error: {str(e)}")
+        logger.error("Study package generation failed", error_type=type(e).__name__)
         fallback = get_fallback_message('study_package')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -387,43 +388,47 @@ async def retry_topic(
         # Get authenticated user ID
         user_id = current_user.id
         topic = body.topic.strip()
-        
+
         # Generate new study package
         study_package = await study_topic(
             topic=topic,
             num_questions=body.num_questions
         )
-        
+
         # Record retry event in xp_history with 10 XP
         from config.supabase_client import supabase
-        
+
         retry_xp = 10
-        
-        # Get current user XP
-        user_response = supabase.table('users').select('total_xp, level').eq('user_id', user_id).single().execute()
+
+        # Wrap all blocking Supabase calls in asyncio.to_thread
+        user_response = await asyncio.to_thread(
+            lambda: supabase.table('users').select('total_xp, level').eq('user_id', user_id).single().execute()
+        )
         current_xp = user_response.data.get('total_xp', 0) if user_response.data else 0
         new_xp = current_xp + retry_xp
-        
-        # Insert XP history record
-        supabase.table('xp_history').insert({
-            'user_id': user_id,
-            'xp_change': retry_xp,
-            'reason': f'retry',
-            'topic': topic,
-            'before_xp': current_xp,
-            'after_xp': new_xp,
-            'metadata': {
-                'action': 'topic_retry',
+
+        await asyncio.to_thread(
+            lambda: supabase.table('xp_history').insert({
+                'user_id': user_id,
+                'xp_change': retry_xp,
+                'reason': 'retry',
                 'topic': topic,
-                'retry_xp': retry_xp
-            }
-        }).execute()
-        
-        # Update user's total XP
-        supabase.table('users').update({
-            'total_xp': new_xp,
-            'level': new_xp // 500 + 1  # 500 XP per level
-        }).eq('user_id', user_id).execute()
+                'before_xp': current_xp,
+                'after_xp': new_xp,
+                'metadata': {
+                    'action': 'topic_retry',
+                    'topic': topic,
+                    'retry_xp': retry_xp
+                }
+            }).execute()
+        )
+
+        await asyncio.to_thread(
+            lambda: supabase.table('users').update({
+                'total_xp': new_xp,
+                'level': new_xp // 500 + 1
+            }).eq('user_id', user_id).execute()
+        )
         
         # Add retry metadata to response
         study_package['metadata']['retry'] = True
@@ -439,9 +444,10 @@ async def retry_topic(
             detail=str(e)
         )
     except Exception as e:
+        logger.error("Retry topic failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retry topic: {str(e)}"
+            detail="Failed to retry topic. Please try again."
         )
 
 
@@ -473,15 +479,16 @@ async def create_study_notes(
         return notes
         
     except ValueError as e:
-        # API key not configured
+        logger.error("Notes generation config error", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Server configuration error: {str(e)}"
+            detail="Server configuration error. Please contact support."
         )
     except Exception as e:
+        logger.error("Notes generation failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate notes: {str(e)}"
+            detail="Failed to generate notes. Please try again."
         )
 
 
@@ -525,9 +532,10 @@ async def complete_study_workflow(
             detail=str(e)
         )
     except Exception as e:
+        logger.error("Complete study workflow failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate study package: {str(e)}"
+            detail="Failed to generate study package. Please try again."
         )
 
 
@@ -577,9 +585,10 @@ async def batch_study_workflow(
             detail=str(e)
         )
     except Exception as e:
+        logger.error("Batch study workflow failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate study packages: {str(e)}"
+            detail="Failed to generate study packages. Please try again."
         )
 
 
@@ -645,8 +654,8 @@ async def generate_adaptive_quiz(
         )
         
         # Get or generate study notes
-        if request.notes:
-            notes = request.notes
+        if body.notes:
+            notes = body.notes
         else:
             # Generate notes for the topic
             print(f"Generating notes for topic: {topic}")
@@ -683,9 +692,10 @@ async def generate_adaptive_quiz(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error("Adaptive quiz generation failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate adaptive quiz: {str(e)}"
+            detail="Failed to generate adaptive quiz. Please try again."
         )
 
 
@@ -810,9 +820,10 @@ async def get_study_recommendations(
         return response
     
     except Exception as e:
+        logger.error("Recommendations generation failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate recommendations: {str(e)}"
+            detail="Failed to generate recommendations. Please try again."
         )
 
 
@@ -947,9 +958,10 @@ async def get_quiz_result_by_id(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Quiz result retrieval failed", error_type=type(e).__name__)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve quiz result: {str(e)}"
+            detail="Failed to retrieve quiz result. Please try again."
         )
 
 

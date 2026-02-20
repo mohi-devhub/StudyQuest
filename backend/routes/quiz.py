@@ -12,10 +12,16 @@ from utils.error_handlers import (
 )
 from utils.cache_utils import get_cached_content, set_cached_content
 from utils.quiz_sessions import create_session
+from utils.logger import get_logger
 from config.supabase_client import supabase
 from typing import List, Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import asyncio
 import time
+
+limiter = Limiter(key_func=get_remote_address)
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/quiz",
@@ -147,6 +153,7 @@ class SimpleQuizResponse(BaseModel):
 
 
 @router.post("/", response_model=SimpleQuizResponse)
+@limiter.limit("5/minute")
 async def generate_simple_quiz(
     http_request: Request,
     request: SimpleQuizRequest,
@@ -283,16 +290,13 @@ async def generate_simple_quiz(
         )
         
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Simple quiz generation error: {str(e)}")
-        print(f"Traceback: {error_trace}")
+        logger.error("Simple quiz generation error", error_type=type(e).__name__)
         fallback = get_fallback_message('quiz')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "status": "error",
-                "message": f"{fallback['message']} Error: {str(e)}",
+                "message": fallback['message'],
                 "code": "GENERATION_ERROR",
                 "suggestion": fallback['suggestion']
             }
@@ -300,6 +304,7 @@ async def generate_simple_quiz(
 
 
 @router.post("/generate", response_model=QuizResponse)
+@limiter.limit("5/minute")
 async def generate_quiz_from_notes(
     http_request: Request,
     request: GenerateQuizFromNotesRequest,
@@ -379,7 +384,7 @@ async def generate_quiz_from_notes(
         )
         
     except Exception as e:
-        print(f"Quiz generation error: {str(e)}")
+        logger.error("Quiz generation from notes failed", error_type=type(e).__name__)
         fallback = get_fallback_message('quiz')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -393,6 +398,7 @@ async def generate_quiz_from_notes(
 
 
 @router.post("/generate-from-topic", response_model=QuizResponse)
+@limiter.limit("5/minute")
 async def generate_quiz_from_structured_notes(
     http_request: Request,
     request: GenerateQuizFromTopicRequest,
@@ -505,7 +511,7 @@ async def generate_quiz_from_structured_notes(
         )
 
     except Exception as e:
-        print(f"Quiz generation error: {str(e)}")
+        logger.error("Quiz generation from topic failed", error_type=type(e).__name__)
         fallback = get_fallback_message('quiz')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -538,9 +544,11 @@ async def start_quiz_session(
     backend fetches the questions from the DB (server is source of truth).
     """
     try:
-        result = supabase.table("study_sessions").select(
-            "topic, quiz_questions"
-        ).eq("id", request.study_session_id).single().execute()
+        result = await asyncio.to_thread(
+            lambda: supabase.table("study_sessions").select(
+                "topic, quiz_questions"
+            ).eq("id", request.study_session_id).single().execute()
+        )
 
         if not result.data:
             raise HTTPException(
@@ -564,8 +572,8 @@ async def start_quiz_session(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Start session error: {str(e)}")
+        logger.error("Start session error", error_type=type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"status": "error", "message": f"Failed to start session: {str(e)}", "code": "SESSION_ERROR"},
+            detail={"status": "error", "message": "Failed to start quiz session. Please try again.", "code": "SESSION_ERROR"},
         )
